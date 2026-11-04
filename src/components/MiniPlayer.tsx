@@ -20,7 +20,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   return (
     <div
       onClick={onOpen}
-      className="mx-3 mb-20 p-2 bg-neutral-900/90 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition duration-200"
+      className="p-2 bg-neutral-900 border border-neutral-700/80 rounded-2xl flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition duration-200"
     >
       <div className="flex items-center gap-3 overflow-hidden flex-1">
         <div className="w-11 h-11 flex-shrink-0">
@@ -41,9 +41,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
           className="p-2 text-white active:scale-90 transition"
         >
           {isPlaying ? (
-            <Pause className="w-6 h-6 fill-current" />
+            <Pause className="w-5 h-5 fill-current" />
           ) : (
-            <Play className="w-6 h-6 fill-current" />
+            <Play className="w-5 h-5 fill-current" />
           )}
         </button>
 
@@ -54,7 +54,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
           }}
           className="p-2 text-neutral-400 active:text-white active:scale-90 transition"
         >
-          <SkipForward className="w-6 h-6 fill-current" />
+          <SkipForward className="w-5 h-5 fill-current" />
         </button>
       </div>
     </div>

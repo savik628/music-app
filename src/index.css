@@ -2,43 +2,70 @@
 
 @layer base {
   :root {
-    --apple-red: #fa2d48;
-    --apple-gray-dark: #1c1c1e;
-    --apple-gray-light: #2c2c2e;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
   }
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
-    -webkit-font-smoothing: antialiased;
+  html, body {
     background-color: #000000;
     color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 }
 
-/* Custom frosted glass */
-.apple-glass {
-  background: rgba(28, 28, 30, 0.75);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+/* Monochrome UI Styling */
+.mono-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
 }
 
-.apple-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+.mono-card:active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
-.apple-card:active {
-  transform: scale(0.97);
-  background: rgba(255, 255, 255, 0.1);
+/* Safe areas helper classes */
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
 }
 
-/* Custom scrollbars */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+
+/* Solid non-blurry iOS header */
+.ios-header {
+  background-color: #000000;
+  border-bottom: 1px solid #1c1c1e;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Solid crisp tab bar */
+.ios-tab-bar {
+  background-color: #0a0a0a;
+  border-top: 1px solid #1c1c1e;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Hide scrollbar */
 ::-webkit-scrollbar {
-  width: 0px;
-  height: 0px;
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

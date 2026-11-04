@@ -36,7 +36,6 @@ export function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load tracks from IndexedDB
   const refreshLibrary = async () => {
     try {
       const data = await getAllTracks();
@@ -162,19 +161,19 @@ export function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-black text-white overflow-hidden">
-      {/* Top Header */}
-      <header className="px-6 pt-12 pb-4 flex items-center justify-between border-b border-neutral-900">
+      {/* Top Header - Safe Area on iPhone, Solid Clear Black */}
+      <header className="ios-header px-5 pt-safe pb-3 flex items-center justify-between flex-shrink-0 z-20">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight text-white">
             {activeTab === 'library' && 'Медиатека'}
             {activeTab === 'albums' && 'Альбомы'}
             {activeTab === 'artists' && 'Артисты'}
             {activeTab === 'search' && 'Поиск'}
           </h1>
-          <p className="text-xs text-neutral-400 mt-0.5">Офлайн веб-плеер</p>
+          <p className="text-[11px] text-neutral-400">Офлайн веб-плеер</p>
         </div>
 
-        {/* Add audio files button */}
+        {/* Import file button */}
         <div className="flex items-center gap-2">
           <input
             type="file"
@@ -187,12 +186,12 @@ export function App() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-full text-xs font-semibold shadow-lg shadow-rose-950/40 transition"
+            className="flex items-center gap-1 px-3.5 py-1.5 bg-white text-black active:scale-95 rounded-full text-xs font-bold shadow-md transition disabled:opacity-50"
           >
             {importing ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
             ) : (
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 text-black" />
             )}
             Добавить музыку
           </button>
@@ -200,89 +199,92 @@ export function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-5 py-4">
+      <main className="flex-1 overflow-y-auto px-4 py-3">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-neutral-500">
-            <Loader2 className="w-6 h-6 animate-spin" />
+            <Loader2 className="w-6 h-6 animate-spin text-white" />
           </div>
         ) : (
           <>
-            {/* Library / All Tracks */}
+            {/* Library / Tracks */}
             {activeTab === 'library' && (
-              <div className="space-y-1 pb-24">
+              <div className="space-y-1 pb-36">
                 {tracks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-                    <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center text-rose-500 mb-4">
+                  <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+                    <div className="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white mb-4">
                       <Music className="w-8 h-8" />
                     </div>
-                    <p className="text-lg font-bold">Ваша музыка пуста</p>
-                    <p className="text-xs text-neutral-400 max-w-xs mt-1 mb-6">
-                      Нажмите «Добавить музыку», чтобы выбрать аудиофайлы с телефона/ПК, или найдите треки во вкладке «Поиск».
+                    <p className="text-base font-bold text-white">В медиатеке пока нет музыки</p>
+                    <p className="text-xs text-neutral-400 max-w-xs mt-1 mb-6 leading-relaxed">
+                      Нажмите «Добавить музыку», чтобы выбрать аудиофайлы с телефона/ПК, или найдите и скачайте треки во вкладке «Поиск».
                     </p>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-5 py-2.5 bg-rose-600 rounded-full text-sm font-semibold text-white shadow-lg shadow-rose-950/40 active:scale-95 transition"
+                      className="px-5 py-2.5 bg-white text-black rounded-full text-xs font-bold active:scale-95 transition shadow-lg"
                     >
-                      Выбрать файлы
+                      Выбрать файлы с устройства
                     </button>
                   </div>
                 ) : (
-                  tracks.map((track) => (
-                    <div
-                      key={track.id}
-                      onClick={() => handlePlayTrack(track)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition ${
-                        currentTrack?.id === track.id
-                          ? 'bg-neutral-800/80 text-rose-500'
-                          : 'hover:bg-neutral-900/60 active:bg-neutral-900 text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden mr-2">
-                        <div className="w-12 h-12 flex-shrink-0">
-                          <CoverImage
-                            blob={track.coverBlob}
-                            alt={track.title}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
+                  tracks.map((track) => {
+                    const isSelected = currentTrack?.id === track.id;
+                    return (
+                      <div
+                        key={track.id}
+                        onClick={() => handlePlayTrack(track)}
+                        className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition ${
+                          isSelected
+                            ? 'bg-neutral-800 border border-neutral-700 text-white'
+                            : 'hover:bg-neutral-900/80 active:bg-neutral-900 text-neutral-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden mr-2">
+                          <div className="w-11 h-11 flex-shrink-0">
+                            <CoverImage
+                              blob={track.coverBlob}
+                              alt={track.title}
+                              className="w-full h-full object-cover rounded-lg border border-neutral-800"
+                            />
+                          </div>
+                          <div className="overflow-hidden">
+                            <p className="text-sm font-semibold truncate leading-tight text-white">
+                              {track.title}
+                            </p>
+                            <p className="text-xs text-neutral-400 truncate mt-0.5">
+                              {track.artist} {track.album ? `• ${track.album}` : ''}
+                            </p>
+                          </div>
                         </div>
-                        <div className="overflow-hidden">
-                          <p className="text-sm font-semibold truncate leading-tight">
-                            {track.title}
-                          </p>
-                          <p className="text-xs text-neutral-400 truncate mt-0.5">
-                            {track.artist} {track.album ? `• ${track.album}` : ''}
-                          </p>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-neutral-500 font-mono">
-                          {formatDuration(track.duration)}
-                        </span>
-                        <button
-                          onClick={(e) => handleToggleFavorite(track.id, e)}
-                          className={`p-1.5 transition ${
-                            track.isFavorite ? 'text-rose-500' : 'text-neutral-500 hover:text-white'
-                          }`}
-                        >
-                          <Heart className={`w-4 h-4 ${track.isFavorite ? 'fill-current' : ''}`} />
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(track.id, e)}
-                          className="p-1.5 text-neutral-500 hover:text-red-400 transition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[11px] text-neutral-500 font-mono">
+                            {formatDuration(track.duration)}
+                          </span>
+                          <button
+                            onClick={(e) => handleToggleFavorite(track.id, e)}
+                            className={`p-1.5 transition ${
+                              track.isFavorite ? 'text-white' : 'text-neutral-500 hover:text-white'
+                            }`}
+                          >
+                            <Heart className={`w-4 h-4 ${track.isFavorite ? 'fill-current' : ''}`} />
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(track.id, e)}
+                            className="p-1.5 text-neutral-500 hover:text-white transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
 
             {/* Albums Tab */}
             {activeTab === 'albums' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-24">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-36">
                 {Object.keys(albumsMap).map((albumName) => {
                   const albumTracks = albumsMap[albumName];
                   const firstWithCover = albumTracks.find((t) => t.coverBlob);
@@ -291,18 +293,18 @@ export function App() {
                     <div
                       key={albumName}
                       onClick={() => handlePlayTrack(albumTracks[0])}
-                      className="cursor-pointer group space-y-2"
+                      className="cursor-pointer group space-y-2 bg-neutral-900/60 p-2 rounded-2xl border border-neutral-800/60"
                     >
-                      <div className="aspect-square w-full rounded-2xl overflow-hidden shadow-lg group-hover:opacity-90 transition">
+                      <div className="aspect-square w-full rounded-xl overflow-hidden shadow">
                         <CoverImage
                           blob={firstWithCover?.coverBlob}
                           alt={albumName}
-                          className="w-full h-full object-cover rounded-2xl"
+                          className="w-full h-full object-cover rounded-xl"
                         />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold truncate">{albumName}</h4>
-                        <p className="text-xs text-neutral-400 truncate">
+                      <div className="px-1">
+                        <h4 className="text-xs font-bold text-white truncate">{albumName}</h4>
+                        <p className="text-[11px] text-neutral-400 truncate mt-0.5">
                           {albumTracks[0]?.artist} • {albumTracks.length} треков
                         </p>
                       </div>
@@ -314,21 +316,21 @@ export function App() {
 
             {/* Artists Tab */}
             {activeTab === 'artists' && (
-              <div className="space-y-2 pb-24">
+              <div className="space-y-2 pb-36">
                 {Object.keys(artistsMap).map((artistName) => {
                   const artistTracks = artistsMap[artistName];
                   return (
                     <div
                       key={artistName}
                       onClick={() => handlePlayTrack(artistTracks[0])}
-                      className="flex items-center justify-between p-3 rounded-xl bg-neutral-900/40 hover:bg-neutral-900 transition cursor-pointer"
+                      className="flex items-center justify-between p-3 rounded-xl bg-neutral-900 border border-neutral-800 transition cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400">
+                        <div className="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-white">
                           <User className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-white">{artistName}</p>
+                          <p className="text-sm font-bold text-white">{artistName}</p>
                           <p className="text-xs text-neutral-400">{artistTracks.length} треков</p>
                         </div>
                       </div>
@@ -346,9 +348,9 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Mini Player */}
+      {/* Floating Mini Player - Above elevated Tab Bar */}
       {currentTrack && !isFullPlayerOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-30">
+        <div className="fixed bottom-[88px] left-3 right-3 z-30">
           <MiniPlayer
             track={currentTrack}
             isPlaying={isPlaying}
@@ -358,46 +360,46 @@ export function App() {
         </div>
       )}
 
-      {/* Bottom Apple Style Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-neutral-950/80 backdrop-blur-2xl border-t border-neutral-900 flex items-center justify-around z-20 px-2 pb-safe">
+      {/* Bottom Elevated Monochrome Tab Bar with safe-area */}
+      <nav className="ios-tab-bar fixed bottom-0 left-0 right-0 z-40 px-3 pb-safe pt-2 flex items-center justify-around">
         <button
           onClick={() => setActiveTab('library')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'library' ? 'text-rose-500 font-medium' : 'text-neutral-400'
+          className={`flex flex-col items-center justify-center flex-1 py-1.5 transition ${
+            activeTab === 'library' ? 'text-white font-bold' : 'text-neutral-500'
           }`}
         >
           <Library className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Медиатека</span>
+          <span className="text-[11px] mt-1">Медиатека</span>
         </button>
 
         <button
           onClick={() => setActiveTab('albums')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'albums' ? 'text-rose-500 font-medium' : 'text-neutral-400'
+          className={`flex flex-col items-center justify-center flex-1 py-1.5 transition ${
+            activeTab === 'albums' ? 'text-white font-bold' : 'text-neutral-500'
           }`}
         >
           <Disc3 className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Альбомы</span>
+          <span className="text-[11px] mt-1">Альбомы</span>
         </button>
 
         <button
           onClick={() => setActiveTab('artists')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'artists' ? 'text-rose-500 font-medium' : 'text-neutral-400'
+          className={`flex flex-col items-center justify-center flex-1 py-1.5 transition ${
+            activeTab === 'artists' ? 'text-white font-bold' : 'text-neutral-500'
           }`}
         >
           <User className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Артисты</span>
+          <span className="text-[11px] mt-1">Артисты</span>
         </button>
 
         <button
           onClick={() => setActiveTab('search')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'search' ? 'text-rose-500 font-medium' : 'text-neutral-400'
+          className={`flex flex-col items-center justify-center flex-1 py-1.5 transition ${
+            activeTab === 'search' ? 'text-white font-bold' : 'text-neutral-500'
           }`}
         >
           <Search className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Поиск</span>
+          <span className="text-[11px] mt-1">Поиск</span>
         </button>
       </nav>
 
