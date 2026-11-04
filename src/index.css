@@ -1,13 +1,6 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
-    --sat: env(safe-area-inset-top, 0px);
-    --sab: env(safe-area-inset-bottom, 0px);
-    --sal: env(safe-area-inset-left, 0px);
-    --sar: env(safe-area-inset-right, 0px);
-  }
-
   html, body {
     background-color: #000000;
     color: #ffffff;
@@ -22,7 +15,6 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    position: fixed;
   }
 
   #root {
@@ -36,26 +28,17 @@
 
 /* Safe areas helper classes */
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top, 0px), 14px);
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
 }
 
 .pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
 }
 
-.ios-header {
-  background-color: #000000;
-  border-bottom: 1px solid #1c1c1e;
-}
-
-.ios-tab-bar {
-  background-color: #090909;
-  border-top: 1px solid #1c1c1e;
-}
-
-/* Hide scrollbar */
+/* Custom scrollbars */
 ::-webkit-scrollbar {
-  display: none;
+  width: 0px;
+  height: 0px;
 }
 * {
   -ms-overflow-style: none;

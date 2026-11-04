@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Search as SearchIcon, Download, Loader2, Music, Check, Play, Pause, ExternalLink } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search as SearchIcon, Download, Loader2, Play, Pause, ExternalLink, Globe } from 'lucide-react';
 import { saveTrack } from '../db';
 import type { Track } from '../types';
 
@@ -25,11 +25,11 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [customUrl, setCustomUrl] = useState('');
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
+  const [statusText, setStatusText] = useState<string | null>(null);
 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Stop preview on unmount
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
@@ -54,7 +54,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     setPreviewTrackId(item.id);
   };
 
-  // Search logic (Apple Music / iTunes catalog + Archive fallback)
+  // Multi-source Search (iTunes RU / Global + Archive.org fallback)
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -66,53 +66,76 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
     setLoading(true);
     setResults([]);
+    setStatusText(null);
+
+    const foundItems: SearchResult[] = [];
+    const seenTitles = new Set<string>();
 
     try {
-      // 1. Search high-quality iTunes catalog (complete with previews and HQ artwork)
-      const itunesRes = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=30`
-      );
-      const itunesData = await itunesRes.json();
+      // 1. Search iTunes Russia & Global simultaneously
+      const encodedQuery = encodeURIComponent(query.trim());
+      const [ruRes, globalRes] = await Promise.allSettled([
+        fetch(`https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=30`).then((r) => r.json()),
+        fetch(`https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=30`).then((r) => r.json()),
+      ]);
 
-      const items: SearchResult[] = (itunesData.results || []).map((t: any) => ({
-        id: String(t.trackId),
-        title: t.trackName || 'Без названия',
-        artist: t.artistName || 'Неизвестный исполнитель',
-        album: t.collectionName || 'Сингл',
-        coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
-        audioUrl: t.previewUrl,
-        duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 30,
-      }));
+      const itunesSongs: any[] = [];
+      if (ruRes.status === 'fulfilled' && ruRes.value?.results) {
+        itunesSongs.push(...ruRes.value.results);
+      }
+      if (globalRes.status === 'fulfilled' && globalRes.value?.results) {
+        itunesSongs.push(...globalRes.value.results);
+      }
 
-      // 2. If itunes had few results, combine with Archive.org
-      if (items.length < 5) {
-        try {
-          const archRes = await fetch(
-            `https://archive.org/advancedsearch.php?q=${encodeURIComponent(
-              query
-            )}+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=15&output=json`
-          );
-          const archData = await archRes.json();
-          const archDocs = archData.response?.docs || [];
+      itunesSongs.forEach((t) => {
+        const key = `${t.artistName} - ${t.trackName}`.toLowerCase();
+        if (!seenTitles.has(key) && t.previewUrl) {
+          seenTitles.add(key);
+          foundItems.push({
+            id: String(t.trackId),
+            title: t.trackName || 'Без названия',
+            artist: t.artistName || 'Неизвестный исполнитель',
+            album: t.collectionName || 'Сингл',
+            coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
+            audioUrl: t.previewUrl,
+            duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 30,
+          });
+        }
+      });
 
-          archDocs.forEach((d: any) => {
-            items.push({
+      // 2. Also search Internet Archive in parallel
+      try {
+        const archRes = await fetch(
+          `https://archive.org/advancedsearch.php?q=${encodedQuery}+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=20&output=json`
+        );
+        const archData = await archRes.json();
+        const archDocs = archData.response?.docs || [];
+
+        archDocs.forEach((d: any) => {
+          const key = `${d.creator} - ${d.title}`.toLowerCase();
+          if (!seenTitles.has(key)) {
+            seenTitles.add(key);
+            foundItems.push({
               id: `arch-${d.identifier}`,
               title: d.title || query,
-              artist: d.creator || 'Архив',
-              album: d.album || 'Интернет-архив',
+              artist: d.creator || 'Интернет-архив',
+              album: d.album || 'Открытая музыка',
               coverUrl: `https://archive.org/services/img/${d.identifier}`,
               audioUrl: `https://archive.org/download/${d.identifier}`,
               duration: 0,
             });
-          });
-        } catch {}
-      }
+          }
+        });
+      } catch {}
 
-      setResults(items);
+      if (foundItems.length === 0) {
+        setStatusText('Ничего не найдено. Попробуйте поискать на Sefon.pro (кнопка ниже) и скачать файл.');
+      } else {
+        setResults(foundItems);
+      }
     } catch (err) {
-      console.error('Ошибка поиска:', err);
-      alert('Ошибка при поиске. Проверьте интернет-соединение.');
+      console.error('Search error:', err);
+      setStatusText('Ошибка сети при поиске. Проверьте интернет.');
     } finally {
       setLoading(false);
     }
@@ -124,7 +147,6 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     try {
       let downloadUrl = item.audioUrl;
 
-      // Handle archive.org item resolution if from archive
       if (item.id.startsWith('arch-')) {
         const archId = item.id.replace('arch-', '');
         const metaRes = await fetch(`https://archive.org/metadata/${archId}`);
@@ -134,11 +156,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         downloadUrl = `https://archive.org/download/${archId}/${encodeURIComponent(mp3.name)}`;
       }
 
-      // Fetch audio blob
       const res = await fetch(downloadUrl);
       const audioBlob = await res.blob();
 
-      // Fetch cover blob
       let coverBlob: Blob | undefined;
       if (item.coverUrl) {
         try {
@@ -164,7 +184,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       onTrackDownloaded();
     } catch (err) {
       console.error('Download error:', err);
-      alert('Не удалось скачать файл. Попробуйте скачать с Sefon и добавить через кнопку вверху.');
+      alert('Не удалось скачать файл. Скачайте напрямую с Sefon.pro и добавьте через «+ Добавить музыку».');
     } finally {
       setDownloadingId(null);
     }
@@ -187,7 +207,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       const newTrack: Track = {
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
         title: cleanTitle,
-        artist: 'Прямая ссылка',
+        artist: 'Загрузка по ссылке',
         album: 'Загрузки',
         duration: 0,
         audioBlob: blob,
@@ -198,9 +218,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       await saveTrack(newTrack);
       setCustomUrl('');
       onTrackDownloaded();
-      alert('Трек сохранен в медиатеку!');
+      alert('Трек успешно сохранен в медиатеку!');
     } catch {
-      alert('Не удалось скачать файл по ссылке. Убедитесь, что это прямая ссылка на аудиофайл.');
+      alert('Браузер не смог напрямую скачать этот URL из-за политики защиты сайта (CORS). Скачайте MP3 файл в память телефона с сайта и нажмите «+ Добавить музыку» вверху.');
     } finally {
       setLoading(false);
     }
@@ -215,7 +235,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Поиск треков и исполнителей..."
+          placeholder="Поиск песен (например: Баста, N1NT3ND0, Eminem)..."
           className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-11 pr-24 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 transition"
         />
         <button
@@ -231,26 +251,26 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Music className="w-4 h-4 text-white" />
+            <Globe className="w-4 h-4 text-white" />
             <span className="text-xs font-bold text-white uppercase tracking-wider">
-              Источник музыки: Sefon.pro
+              Источник: Sefon.pro
             </span>
           </div>
           <a
-            href="https://sefon.pro/mp3/"
+            href={query.trim() ? `https://sefon.pro/search/?q=${encodeURIComponent(query.trim())}` : 'https://sefon.pro/mp3/'}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 text-xs font-bold text-white bg-neutral-800 px-3 py-1.5 rounded-lg hover:bg-neutral-700 active:scale-95 transition"
           >
-            Открыть Sefon.pro <ExternalLink className="w-3.5 h-3.5" />
+            {query.trim() ? `Найти «${query.trim().slice(0, 12)}...» на Sefon` : 'Открыть Sefon.pro'} <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
         <p className="text-xs text-neutral-400 leading-relaxed">
-          Нажмите кнопку выше, чтобы открыть <b>Sefon.pro</b>, скачать любой трек на телефон в 1 клик, а затем нажать <b>«+ Добавить музыку»</b> в верхней панели плеера!
+          Большинство русских треков (как <b>N1NT3ND0 – Олина попа</b>) легко скачиваются в MP3 на Sefon. Нажмите кнопку выше, скачайте трек на телефон в 1 клик и нажмите вверху плеера <b>«+ Добавить музыку»</b>.
         </p>
 
         {/* Or direct download link */}
-        <form onSubmit={handleDownloadUrl} className="flex gap-2 pt-1 border-t border-neutral-800">
+        <form onSubmit={handleDownloadUrl} className="flex gap-2 pt-2 border-t border-neutral-800">
           <input
             type="url"
             value={customUrl}
@@ -276,6 +296,13 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         </div>
       )}
 
+      {/* Status or empty */}
+      {statusText && !loading && (
+        <div className="text-center py-6 text-xs text-neutral-400 leading-relaxed px-4">
+          {statusText}
+        </div>
+      )}
+
       {/* Results with Audio Preview & Download */}
       {results.length > 0 && (
         <div className="space-y-2">
@@ -284,7 +311,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
               Результаты ({results.length})
             </h3>
             <span className="text-[11px] text-neutral-500">
-              ▶ Прослушать • ⬇ Скачать
+              ▶ Слушать • ⬇ Скачать
             </span>
           </div>
 
