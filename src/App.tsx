@@ -160,17 +160,17 @@ export function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-black text-white overflow-hidden">
-      {/* Top Header */}
-      <header className="px-5 pt-safe pb-3 flex items-center justify-between border-b border-neutral-900 flex-shrink-0 z-20">
+    <div className="flex flex-col h-full w-full bg-black text-white overflow-hidden relative">
+      {/* Top Apple Style Header */}
+      <header className="apple-header px-5 pt-safe pb-3 flex items-center justify-between flex-shrink-0 z-20">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white">
+          <h1 className="text-2xl font-black tracking-tight text-white">
             {activeTab === 'library' && 'Медиатека'}
             {activeTab === 'albums' && 'Альбомы'}
             {activeTab === 'artists' && 'Артисты'}
             {activeTab === 'search' && 'Поиск'}
           </h1>
-          <p className="text-[11px] text-neutral-400">Офлайн веб-плеер</p>
+          <p className="text-[11px] text-neutral-400 font-medium">Офлайн плеер</p>
         </div>
 
         {/* Import file button */}
@@ -186,7 +186,7 @@ export function App() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-100 hover:bg-white text-black active:scale-95 rounded-full text-xs font-bold shadow-md transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-black active:scale-95 rounded-full text-xs font-bold shadow-md transition disabled:opacity-50"
           >
             {importing ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
@@ -208,14 +208,14 @@ export function App() {
           <>
             {/* Library / Tracks */}
             {activeTab === 'library' && (
-              <div className="space-y-1 pb-32">
+              <div className="space-y-1 pb-36">
                 {tracks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-                    <div className="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white mb-4">
+                    <div className="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white mb-4 shadow-xl">
                       <Music className="w-8 h-8" />
                     </div>
-                    <p className="text-base font-bold text-white">Ваша музыка пуста</p>
-                    <p className="text-xs text-neutral-400 max-w-xs mt-1 mb-6 leading-relaxed">
+                    <p className="text-base font-bold text-white">Медиатека пуста</p>
+                    <p className="text-xs text-neutral-400 max-w-xs mt-1.5 mb-6 leading-relaxed">
                       Нажмите «Добавить музыку», чтобы выбрать аудиофайлы с телефона/ПК, или найдите и скачайте треки во вкладке «Поиск».
                     </p>
                     <button
@@ -232,7 +232,7 @@ export function App() {
                       <div
                         key={track.id}
                         onClick={() => handlePlayTrack(track)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition ${
+                        className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition ${
                           isSelected
                             ? 'bg-neutral-800/90 text-white'
                             : 'hover:bg-neutral-900/60 active:bg-neutral-900 text-neutral-300'
@@ -243,7 +243,7 @@ export function App() {
                             <CoverImage
                               blob={track.coverBlob}
                               alt={track.title}
-                              className="w-full h-full object-cover rounded-lg"
+                              className="w-full h-full object-cover rounded-xl"
                             />
                           </div>
                           <div className="overflow-hidden">
@@ -284,7 +284,7 @@ export function App() {
 
             {/* Albums Tab */}
             {activeTab === 'albums' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-32">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-36">
                 {Object.keys(albumsMap).map((albumName) => {
                   const albumTracks = albumsMap[albumName];
                   const firstWithCover = albumTracks.find((t) => t.coverBlob);
@@ -293,13 +293,13 @@ export function App() {
                     <div
                       key={albumName}
                       onClick={() => handlePlayTrack(albumTracks[0])}
-                      className="cursor-pointer group space-y-2"
+                      className="cursor-pointer group space-y-2 bg-neutral-900/40 p-2 rounded-2xl border border-neutral-800/60"
                     >
-                      <div className="aspect-square w-full rounded-2xl overflow-hidden shadow">
+                      <div className="aspect-square w-full rounded-xl overflow-hidden shadow">
                         <CoverImage
                           blob={firstWithCover?.coverBlob}
                           alt={albumName}
-                          className="w-full h-full object-cover rounded-2xl"
+                          className="w-full h-full object-cover rounded-xl"
                         />
                       </div>
                       <div className="px-1">
@@ -316,14 +316,14 @@ export function App() {
 
             {/* Artists Tab */}
             {activeTab === 'artists' && (
-              <div className="space-y-2 pb-32">
+              <div className="space-y-2 pb-36">
                 {Object.keys(artistsMap).map((artistName) => {
                   const artistTracks = artistsMap[artistName];
                   return (
                     <div
                       key={artistName}
                       onClick={() => handlePlayTrack(artistTracks[0])}
-                      className="flex items-center justify-between p-3 rounded-xl bg-neutral-900/60 hover:bg-neutral-900 transition cursor-pointer"
+                      className="flex items-center justify-between p-3 rounded-2xl bg-neutral-900/60 hover:bg-neutral-900 transition cursor-pointer border border-neutral-800/50"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-white">
@@ -348,9 +348,9 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Mini Player (Above original bottom bar) */}
+      {/* Floating Mini Player (Positioned above Glass Tab Bar) */}
       {currentTrack && !isFullPlayerOpen && (
-        <div className="fixed bottom-16 left-0 right-0 z-30">
+        <div className="fixed bottom-[calc(60px+max(env(safe-area-inset-bottom,0px),12px)+6px)] left-3 right-3 z-30">
           <MiniPlayer
             track={currentTrack}
             isPlaying={isPlaying}
@@ -360,46 +360,46 @@ export function App() {
         </div>
       )}
 
-      {/* Bottom Apple Style Tab Bar (Original Version) */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-neutral-950/80 backdrop-blur-2xl border-t border-neutral-900 flex items-center justify-around z-20 px-2 pb-safe">
+      {/* Original Apple Style Frosted Glass Tab Bar */}
+      <nav className="apple-tab-bar fixed bottom-0 left-0 right-0 z-20 px-2 pb-safe flex items-center justify-around h-[calc(60px+max(env(safe-area-inset-bottom,0px),12px))]">
         <button
           onClick={() => setActiveTab('library')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'library' ? 'text-white font-medium' : 'text-neutral-400'
+            activeTab === 'library' ? 'text-white font-bold' : 'text-neutral-400'
           }`}
         >
           <Library className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Медиатека</span>
+          <span className="text-[10px] mt-1 tracking-tight">Медиатека</span>
         </button>
 
         <button
           onClick={() => setActiveTab('albums')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'albums' ? 'text-white font-medium' : 'text-neutral-400'
+            activeTab === 'albums' ? 'text-white font-bold' : 'text-neutral-400'
           }`}
         >
           <Disc3 className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Альбомы</span>
+          <span className="text-[10px] mt-1 tracking-tight">Альбомы</span>
         </button>
 
         <button
           onClick={() => setActiveTab('artists')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'artists' ? 'text-white font-medium' : 'text-neutral-400'
+            activeTab === 'artists' ? 'text-white font-bold' : 'text-neutral-400'
           }`}
         >
           <User className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Артисты</span>
+          <span className="text-[10px] mt-1 tracking-tight">Артисты</span>
         </button>
 
         <button
           onClick={() => setActiveTab('search')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'search' ? 'text-white font-medium' : 'text-neutral-400'
+            activeTab === 'search' ? 'text-white font-bold' : 'text-neutral-400'
           }`}
         >
           <Search className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Поиск</span>
+          <span className="text-[10px] mt-1 tracking-tight">Поиск</span>
         </button>
       </nav>
 

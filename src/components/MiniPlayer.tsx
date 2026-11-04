@@ -20,11 +20,11 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   return (
     <div
       onClick={onOpen}
-      className="p-2 bg-neutral-900 border border-neutral-700/80 rounded-2xl flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition duration-200"
+      className="mini-player-glass p-2.5 rounded-2xl flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition duration-200"
     >
       <div className="flex items-center gap-3 overflow-hidden flex-1">
         <div className="w-11 h-11 flex-shrink-0">
-          <CoverImage blob={track.coverBlob} alt={track.title} className="w-full h-full object-cover rounded-xl" />
+          <CoverImage blob={track.coverBlob} alt={track.title} className="w-full h-full object-cover rounded-xl shadow-md" />
         </div>
         <div className="overflow-hidden pr-2">
           <p className="text-sm font-semibold truncate text-white">{track.title}</p>
@@ -32,7 +32,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-1 flex-shrink-0 pr-1">
+      <div className="flex items-center gap-1.5 flex-shrink-0 pr-1">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -43,7 +43,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
           {isPlaying ? (
             <Pause className="w-5 h-5 fill-current" />
           ) : (
-            <Play className="w-5 h-5 fill-current" />
+            <Play className="w-5 h-5 fill-current translate-x-0.5" />
           )}
         </button>
 

@@ -1,17 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search as SearchIcon, Download, Loader2, Play, Pause, ExternalLink, Globe } from 'lucide-react';
+import {
+  Search as SearchIcon,
+  Download,
+  Loader2,
+  Play,
+  Pause,
+  ExternalLink,
+  Globe,
+  Check,
+  Flame,
+  Radio,
+} from 'lucide-react';
 import { saveTrack } from '../db';
 import type { Track } from '../types';
-
-interface SearchResult {
-  id: string;
-  title: string;
-  artist: string;
-  album: string;
-  coverUrl?: string;
-  audioUrl: string;
-  duration: number;
-}
+import { searchTracks, type SearchTrack } from '../searchService';
 
 interface SearchTabProps {
   onTrackDownloaded: () => void;
@@ -20,12 +22,12 @@ interface SearchTabProps {
 export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<SearchTrack[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [customUrl, setCustomUrl] = useState('');
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
-  const [statusText, setStatusText] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -37,7 +39,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     };
   }, []);
 
-  const togglePreview = (item: SearchResult) => {
+  const togglePreview = (item: SearchTrack) => {
+    if (!item.audioUrl) return;
+
     if (previewTrackId === item.id) {
       previewAudioRef.current?.pause();
       setPreviewTrackId(null);
@@ -54,10 +58,10 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     setPreviewTrackId(item.id);
   };
 
-  // Multi-source Search (iTunes RU / Global + Archive.org fallback)
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const handleSearch = async (e?: React.FormEvent, customQ?: string) => {
+    if (e) e.preventDefault();
+    const targetQ = customQ || query;
+    if (!targetQ.trim()) return;
 
     if (previewAudioRef.current) {
       previewAudioRef.current.pause();
@@ -65,96 +69,35 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     }
 
     setLoading(true);
+    setSearched(true);
     setResults([]);
-    setStatusText(null);
-
-    const foundItems: SearchResult[] = [];
-    const seenTitles = new Set<string>();
 
     try {
-      // 1. Search iTunes Russia & Global simultaneously
-      const encodedQuery = encodeURIComponent(query.trim());
-      const [ruRes, globalRes] = await Promise.allSettled([
-        fetch(`https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=30`).then((r) => r.json()),
-        fetch(`https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=30`).then((r) => r.json()),
-      ]);
-
-      const itunesSongs: any[] = [];
-      if (ruRes.status === 'fulfilled' && ruRes.value?.results) {
-        itunesSongs.push(...ruRes.value.results);
-      }
-      if (globalRes.status === 'fulfilled' && globalRes.value?.results) {
-        itunesSongs.push(...globalRes.value.results);
-      }
-
-      itunesSongs.forEach((t) => {
-        const key = `${t.artistName} - ${t.trackName}`.toLowerCase();
-        if (!seenTitles.has(key) && t.previewUrl) {
-          seenTitles.add(key);
-          foundItems.push({
-            id: String(t.trackId),
-            title: t.trackName || 'Без названия',
-            artist: t.artistName || 'Неизвестный исполнитель',
-            album: t.collectionName || 'Сингл',
-            coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
-            audioUrl: t.previewUrl,
-            duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 30,
-          });
-        }
-      });
-
-      // 2. Also search Internet Archive in parallel
-      try {
-        const archRes = await fetch(
-          `https://archive.org/advancedsearch.php?q=${encodedQuery}+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=20&output=json`
-        );
-        const archData = await archRes.json();
-        const archDocs = archData.response?.docs || [];
-
-        archDocs.forEach((d: any) => {
-          const key = `${d.creator} - ${d.title}`.toLowerCase();
-          if (!seenTitles.has(key)) {
-            seenTitles.add(key);
-            foundItems.push({
-              id: `arch-${d.identifier}`,
-              title: d.title || query,
-              artist: d.creator || 'Интернет-архив',
-              album: d.album || 'Открытая музыка',
-              coverUrl: `https://archive.org/services/img/${d.identifier}`,
-              audioUrl: `https://archive.org/download/${d.identifier}`,
-              duration: 0,
-            });
-          }
-        });
-      } catch {}
-
-      if (foundItems.length === 0) {
-        setStatusText('Ничего не найдено. Попробуйте поискать на Sefon.pro (кнопка ниже) и скачать файл.');
-      } else {
-        setResults(foundItems);
-      }
+      const items = await searchTracks(targetQ);
+      setResults(items);
     } catch (err) {
       console.error('Search error:', err);
-      setStatusText('Ошибка сети при поиске. Проверьте интернет.');
     } finally {
       setLoading(false);
     }
   };
 
   // Download track directly into offline IndexedDB
-  const handleDownload = async (item: SearchResult) => {
+  const handleDownload = async (item: SearchTrack) => {
     setDownloadingId(item.id);
     try {
       let downloadUrl = item.audioUrl;
 
-      if (item.id.startsWith('arch-')) {
-        const archId = item.id.replace('arch-', '');
+      if (item.source === 'archive') {
+        const archId = item.id.replace('archive-', '');
         const metaRes = await fetch(`https://archive.org/metadata/${archId}`);
         const meta = await metaRes.json();
         const mp3 = (meta.files || []).find((f: any) => f.name?.toLowerCase().endsWith('.mp3'));
         if (!mp3) throw new Error('MP3 не найден');
         downloadUrl = `https://archive.org/download/${archId}/${encodeURIComponent(mp3.name)}`;
       }
+
+      if (!downloadUrl) throw new Error('Нет ссылки для скачивания');
 
       const res = await fetch(downloadUrl);
       const audioBlob = await res.blob();
@@ -184,7 +127,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       onTrackDownloaded();
     } catch (err) {
       console.error('Download error:', err);
-      alert('Не удалось скачать файл. Скачайте напрямую с Sefon.pro и добавьте через «+ Добавить музыку».');
+      alert('Не удалось скачать этот трек напрямую. Используйте быстрый поиск Sefon ниже для скачивания MP3.');
     } finally {
       setDownloadingId(null);
     }
@@ -218,59 +161,90 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       await saveTrack(newTrack);
       setCustomUrl('');
       onTrackDownloaded();
-      alert('Трек успешно сохранен в медиатеку!');
+      alert('Трек сохранен в медиатеку!');
     } catch {
-      alert('Браузер не смог напрямую скачать этот URL из-за политики защиты сайта (CORS). Скачайте MP3 файл в память телефона с сайта и нажмите «+ Добавить музыку» вверху.');
+      alert('Браузер не смог напрямую скачать этот URL из-за политики безопасности сайта (CORS). Скачайте MP3 файл в память телефона и нажмите «+ Добавить музыку» вверху.');
     } finally {
       setLoading(false);
     }
   };
 
+  const quickSearch = (artistName: string) => {
+    setQuery(artistName);
+    handleSearch(undefined, artistName);
+  };
+
   return (
     <div className="space-y-4 pb-36">
-      {/* Search Bar */}
-      <form onSubmit={handleSearch} className="relative">
+      {/* Search Input Bar */}
+      <form onSubmit={(e) => handleSearch(e)} className="relative">
         <SearchIcon className="absolute left-3.5 top-3.5 w-5 h-5 text-neutral-500" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Поиск песен (например: Баста, N1NT3ND0, Eminem)..."
-          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-11 pr-24 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 transition"
+          placeholder="Артист или название песни..."
+          className="w-full bg-neutral-900/90 border border-neutral-800 rounded-2xl pl-11 pr-24 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 transition shadow-inner"
         />
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="absolute right-2 top-2 px-4 py-1.5 bg-white text-black text-xs font-bold rounded-lg disabled:opacity-40 active:scale-95 transition"
+          className="absolute right-2 top-2 px-4 py-1.5 bg-white text-black text-xs font-bold rounded-xl disabled:opacity-40 active:scale-95 transition"
         >
-          Искать
+          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Искать'}
         </button>
       </form>
 
-      {/* Sefon.pro Quick Link Box */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3">
+      {/* Popular Russian Artists Fast Tags */}
+      {!searched && results.length === 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 px-1 text-neutral-400">
+            <Flame className="w-4 h-4 text-white" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Популярные запросы</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['N1NT3ND0', 'Баста', 'Noggano', 'Скриптонит', 'Miyagi', 'ATL', 'Eminem', 'Queen'].map((tag) => (
+              <button
+                key={tag}
+                onClick={() => quickSearch(tag)}
+                className="px-3.5 py-1.5 bg-neutral-900 border border-neutral-800 hover:border-neutral-600 rounded-full text-xs font-medium text-neutral-300 active:scale-95 transition"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sefon.pro Direct Search & Download Hub */}
+      <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 space-y-3 shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-white" />
             <span className="text-xs font-bold text-white uppercase tracking-wider">
-              Источник: Sefon.pro
+              Каталог Sefon.pro (все редкие треки)
             </span>
           </div>
           <a
-            href={query.trim() ? `https://sefon.pro/search/?q=${encodeURIComponent(query.trim())}` : 'https://sefon.pro/mp3/'}
+            href={
+              query.trim()
+                ? `https://sefon.pro/search/?q=${encodeURIComponent(query.trim())}`
+                : 'https://sefon.pro/mp3/'
+            }
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1 text-xs font-bold text-white bg-neutral-800 px-3 py-1.5 rounded-lg hover:bg-neutral-700 active:scale-95 transition"
+            className="flex items-center gap-1.5 text-xs font-bold text-white bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded-xl hover:bg-neutral-700 active:scale-95 transition"
           >
-            {query.trim() ? `Найти «${query.trim().slice(0, 12)}...» на Sefon` : 'Открыть Sefon.pro'} <ExternalLink className="w-3.5 h-3.5" />
+            {query.trim() ? `Найти «${query.trim().slice(0, 10)}»` : 'Открыть Sefon.pro'}{' '}
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
         <p className="text-xs text-neutral-400 leading-relaxed">
-          Большинство русских треков (как <b>N1NT3ND0 – Олина попа</b>) легко скачиваются в MP3 на Sefon. Нажмите кнопку выше, скачайте трек на телефон в 1 клик и нажмите вверху плеера <b>«+ Добавить музыку»</b>.
+          Здесь доступны любые редкие треки (например, весь альбом <b>N1NT3ND0</b>). Нажмите кнопку выше, скачайте MP3 файл в 1 клик и нажмите вверху плеера <b>«+ Добавить музыку»</b>.
         </p>
 
-        {/* Or direct download link */}
-        <form onSubmit={handleDownloadUrl} className="flex gap-2 pt-2 border-t border-neutral-800">
+        {/* Or direct URL download */}
+        <form onSubmit={handleDownloadUrl} className="flex gap-2 pt-2 border-t border-neutral-800/80">
           <input
             type="url"
             value={customUrl}
@@ -290,16 +264,27 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
       {/* Loading state */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-10 text-neutral-400 space-y-2">
+        <div className="flex flex-col items-center justify-center py-12 text-neutral-400 space-y-2">
           <Loader2 className="w-6 h-6 animate-spin text-white" />
-          <span className="text-xs">Ищем аудиозаписи...</span>
+          <span className="text-xs">Ищем аудиозаписи во всех базах...</span>
         </div>
       )}
 
-      {/* Status or empty */}
-      {statusText && !loading && (
-        <div className="text-center py-6 text-xs text-neutral-400 leading-relaxed px-4">
-          {statusText}
+      {/* No results prompt */}
+      {searched && !loading && results.length === 0 && (
+        <div className="text-center py-8 px-4 bg-neutral-900/40 rounded-2xl border border-neutral-800/60 space-y-3">
+          <p className="text-sm font-semibold text-white">В открытых стримингах этот трек ограничен</p>
+          <p className="text-xs text-neutral-400 max-w-sm mx-auto leading-relaxed">
+            Такие треки (как N1NT3ND0 – Олина попа) доступны на <b>Sefon.pro</b>. Нажмите кнопку выше «Найти на Sefon», скачайте MP3 и загрузите через «+ Добавить музыку».
+          </p>
+          <a
+            href={`https://sefon.pro/search/?q=${encodeURIComponent(query.trim())}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-black rounded-xl text-xs font-bold active:scale-95 transition"
+          >
+            Найти «{query}» на Sefon.pro <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
       )}
 
@@ -308,11 +293,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-              Результаты ({results.length})
+              Найдено ({results.length})
             </h3>
-            <span className="text-[11px] text-neutral-500">
-              ▶ Слушать • ⬇ Скачать
-            </span>
+            <span className="text-[11px] text-neutral-500">▶ Слушать • ⬇ Скачать</span>
           </div>
 
           <div className="space-y-1.5">
@@ -324,17 +307,17 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
               return (
                 <div
                   key={res.id}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border transition ${
+                  className={`flex items-center justify-between p-2.5 rounded-2xl border transition ${
                     isPreviewing
-                      ? 'bg-neutral-800 border-neutral-600'
-                      : 'bg-neutral-900 border-neutral-800'
+                      ? 'bg-neutral-800/90 border-neutral-600'
+                      : 'bg-neutral-900/80 border-neutral-800/80'
                   }`}
                 >
                   <div className="flex items-center gap-3 overflow-hidden mr-2">
                     {/* Play / Preview Button */}
                     <button
                       onClick={() => togglePreview(res)}
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-95 transition ${
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 transition ${
                         isPreviewing ? 'bg-white text-black' : 'bg-neutral-800 text-white'
                       }`}
                     >
@@ -350,7 +333,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                         {res.title}
                       </p>
                       <p className="text-xs text-neutral-400 truncate mt-0.5">
-                        {res.artist} • {res.album}
+                        {res.artist} {res.album ? `• ${res.album}` : ''}
                       </p>
                     </div>
                   </div>
