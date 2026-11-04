@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --apple-red: #fa2d48;
+    --apple-gray-dark: #1c1c1e;
+    --apple-gray-light: #2c2c2e;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-color: #000000;
+    color: #ffffff;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom frosted glass */
+.apple-glass {
+  background: rgba(28, 28, 30, 0.75);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.apple-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.apple-card:active {
+  transform: scale(0.97);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
