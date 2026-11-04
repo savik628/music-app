@@ -15,50 +15,42 @@
     -webkit-font-smoothing: antialiased;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
     height: 100%;
     width: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
+    position: fixed;
   }
-}
 
-/* Monochrome UI Styling */
-.mono-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-}
-
-.mono-card:active {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 /* Safe areas helper classes */
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top, 0px), 16px);
+  padding-top: max(env(safe-area-inset-top, 0px), 14px);
 }
 
 .pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
 }
 
-/* Solid non-blurry iOS header */
 .ios-header {
   background-color: #000000;
   border-bottom: 1px solid #1c1c1e;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
 }
 
-/* Solid crisp tab bar */
 .ios-tab-bar {
-  background-color: #0a0a0a;
+  background-color: #090909;
   border-top: 1px solid #1c1c1e;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
 }
 
 /* Hide scrollbar */
