@@ -5,11 +5,37 @@ class AudioEngine {
   private currentTrack: Track | null = null;
   private currentBlobUrl: string | null = null;
   private listeners: Set<() => void> = new Set();
+  private gainNode: GainNode | null = null;
+  private audioCtx: AudioContext | null = null;
+  private sourceNode: MediaElementAudioSourceNode | null = null;
+  private softwareVolume: number = 1;
 
   constructor() {
     this.audio = new Audio();
+    // iOS Safari audio properties
+    this.audio.preload = 'auto';
+    (this.audio as any).playsInline = true;
+
     this.setupListeners();
     this.setupMediaSession();
+  }
+
+  private initWebAudio() {
+    if (this.audioCtx) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      this.audioCtx = new AudioContextClass();
+      this.gainNode = this.audioCtx.createGain();
+      this.gainNode.gain.value = this.softwareVolume;
+
+      this.sourceNode = this.audioCtx.createMediaElementSource(this.audio);
+      this.sourceNode.connect(this.gainNode);
+      this.gainNode.connect(this.audioCtx.destination);
+    } catch (e) {
+      console.warn('Web Audio API not allowed yet:', e);
+    }
   }
 
   private setupListeners() {
@@ -44,6 +70,10 @@ class AudioEngine {
     this.audio.src = this.currentBlobUrl;
 
     try {
+      this.initWebAudio();
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        await this.audioCtx.resume();
+      }
       await this.audio.play();
     } catch (err) {
       console.error('Audio playback error:', err);
@@ -55,6 +85,11 @@ class AudioEngine {
 
   public async togglePlay() {
     if (!this.currentTrack) return;
+    this.initWebAudio();
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      await this.audioCtx.resume();
+    }
+
     if (this.audio.paused) {
       await this.audio.play();
     } else {
@@ -71,7 +106,19 @@ class AudioEngine {
   }
 
   public setVolume(vol: number) {
-    this.audio.volume = Math.max(0, Math.min(1, vol));
+    const clamped = Math.max(0, Math.min(1, vol));
+    this.softwareVolume = clamped;
+
+    // Standard HTMLAudio volume (works on Desktop/Android)
+    try {
+      this.audio.volume = clamped;
+    } catch {}
+
+    // GainNode volume (Works directly on iPhone/iOS Safari where audio.volume is read-only!)
+    if (this.gainNode) {
+      this.gainNode.gain.setValueAtTime(clamped, this.audioCtx ? this.audioCtx.currentTime : 0);
+    }
+    this.notify();
   }
 
   public getState() {
@@ -80,7 +127,7 @@ class AudioEngine {
       isPlaying: !this.audio.paused,
       currentTime: this.audio.currentTime,
       duration: this.audio.duration || this.currentTrack?.duration || 0,
-      volume: this.audio.volume,
+      volume: this.softwareVolume,
     };
   }
 
