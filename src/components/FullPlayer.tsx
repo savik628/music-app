@@ -31,7 +31,7 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
   isRepeat,
   toggleRepeat,
 }) => {
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolume] = useState(() => audioEngine.getState().volume);
   const [dragY, setDragY] = useState(0);
   const touchStartY = useRef<number | null>(null);
 
@@ -186,18 +186,20 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
       </div>
 
       {/* Hardware-Independent Software Volume (iOS Web Audio API GainNode) */}
-      <div className="flex items-center gap-3 px-4 pb-2">
-        <Volume2 className="w-4 h-4 text-neutral-400" />
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={volume}
-          onChange={handleVolume}
-          className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white"
-        />
-      </div>
+      {audioEngine.canSetVolume && (
+        <div className="flex items-center gap-3 px-4 pb-2">
+          <Volume2 className="w-4 h-4 text-neutral-400" />
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={handleVolume}
+            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white"
+          />
+        </div>
+      )}
 
       {/* Quick One-Handed Dismiss Button */}
       <button

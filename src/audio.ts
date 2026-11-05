@@ -1,18 +1,25 @@
 import type { Track } from './types';
 
 class AudioEngine {
+  public readonly canSetVolume: boolean;
   private audio: HTMLAudioElement;
   private currentTrack: Track | null = null;
   private currentBlobUrl: string | null = null;
+  private currentArtworkUrl: string | null = null;
   private listeners: Set<() => void> = new Set();
-  private gainNode: GainNode | null = null;
-  private audioCtx: AudioContext | null = null;
-  private sourceNode: MediaElementAudioSourceNode | null = null;
   private softwareVolume: number = 1;
   private activePreviewAudio: HTMLAudioElement | null = null;
   private previewStopListeners: Set<() => void> = new Set();
 
   constructor() {
+    const testAudio = new Audio();
+    try {
+      testAudio.volume = 0.5;
+      this.canSetVolume = testAudio.volume === 0.5;
+    } catch {
+      this.canSetVolume = false;
+    }
+
     this.audio = new Audio();
     // iOS Safari audio properties
     this.audio.preload = 'auto';
@@ -20,24 +27,6 @@ class AudioEngine {
 
     this.setupListeners();
     this.setupMediaSession();
-  }
-
-  private initWebAudio() {
-    if (this.audioCtx) return;
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-
-      this.audioCtx = new AudioContextClass();
-      this.gainNode = this.audioCtx.createGain();
-      this.gainNode.gain.value = this.softwareVolume;
-
-      this.sourceNode = this.audioCtx.createMediaElementSource(this.audio);
-      this.sourceNode.connect(this.gainNode);
-      this.gainNode.connect(this.audioCtx.destination);
-    } catch (e) {
-      console.warn('Web Audio API not allowed yet:', e);
-    }
   }
 
   private setupListeners() {
@@ -105,10 +94,6 @@ class AudioEngine {
     this.audio.src = this.currentBlobUrl;
 
     try {
-      this.initWebAudio();
-      if (this.audioCtx && this.audioCtx.state === 'suspended') {
-        await this.audioCtx.resume();
-      }
       await this.audio.play();
     } catch (err) {
       console.error('Audio playback error:', err);
@@ -120,10 +105,6 @@ class AudioEngine {
 
   public async togglePlay() {
     if (!this.currentTrack) return;
-    this.initWebAudio();
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      await this.audioCtx.resume();
-    }
 
     if (this.audio.paused) {
       this.stopPreview();
@@ -145,15 +126,9 @@ class AudioEngine {
     const clamped = Math.max(0, Math.min(1, vol));
     this.softwareVolume = clamped;
 
-    // Standard HTMLAudio volume (works on Desktop/Android)
     try {
       this.audio.volume = clamped;
     } catch {}
-
-    // GainNode volume (Works directly on iPhone/iOS Safari where audio.volume is read-only!)
-    if (this.gainNode) {
-      this.gainNode.gain.setValueAtTime(clamped, this.audioCtx ? this.audioCtx.currentTime : 0);
-    }
     this.notify();
   }
 
@@ -170,8 +145,15 @@ class AudioEngine {
   private setupMediaSession() {
     if (!('mediaSession' in navigator)) return;
 
-    navigator.mediaSession.setActionHandler('play', () => this.togglePlay());
-    navigator.mediaSession.setActionHandler('pause', () => this.togglePlay());
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (this.currentTrack) {
+        this.stopPreview();
+        this.audio.play().catch(() => {});
+      }
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      this.audio.pause();
+    });
     navigator.mediaSession.setActionHandler('seekto', (details) => {
       if (details.seekTime !== undefined) {
         this.seek(details.seekTime);
@@ -188,16 +170,24 @@ class AudioEngine {
   private updateMediaSessionMetadata(track: Track) {
     if (!('mediaSession' in navigator)) return;
 
+    if (this.currentArtworkUrl) {
+      URL.revokeObjectURL(this.currentArtworkUrl);
+      this.currentArtworkUrl = null;
+    }
+
     let artworkSrc = './favicon.svg';
+    let artworkType = 'image/svg+xml';
     if (track.coverBlob) {
       artworkSrc = URL.createObjectURL(track.coverBlob);
+      this.currentArtworkUrl = artworkSrc;
+      artworkType = track.coverBlob.type || 'image/jpeg';
     }
 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
       artist: track.artist,
       album: track.album,
-      artwork: [{ src: artworkSrc, sizes: '512x512', type: 'image/png' }],
+      artwork: [{ src: artworkSrc, sizes: '512x512', type: artworkType }],
     });
   }
 }

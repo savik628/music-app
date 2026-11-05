@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { saveTrack } from '../db';
 import type { Track } from '../types';
-import { searchTracks, getPopularTracks, type SearchTrack } from '../searchService';
+import { searchTracks, getPopularTracks, pickArchiveMp3, type SearchTrack } from '../searchService';
 import { audioEngine } from '../audio';
 import { searchCoverOnline } from '../coverService';
 
@@ -71,9 +71,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         const archId = item.id.replace('arch-', '');
         const metaRes = await fetch(`https://archive.org/metadata/${archId}`);
         const meta = await metaRes.json();
-        const mp3 = (meta.files || []).find((f: any) => f.name?.toLowerCase().endsWith('.mp3'));
-        if (mp3) {
-          url = `https://archive.org/download/${archId}/${encodeURIComponent(mp3.name)}`;
+        const picked = pickArchiveMp3(meta, archId);
+        if (picked?.url) {
+          url = picked.url;
         }
       } catch {}
     }
@@ -127,22 +127,37 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
   };
 
   const handleDownload = async (item: SearchTrack) => {
+    if (item.isFullVersion !== true) {
+      alert('Это 30-секундное превью iTunes — в медиатеку сохраняются только полные треки.');
+      return;
+    }
+
     setDownloadingId(item.id);
     try {
       let downloadUrl = item.audioUrl;
+      let duration = item.duration;
 
       if (item.id.startsWith('arch-')) {
         const archId = item.id.replace('arch-', '');
         const metaRes = await fetch(`https://archive.org/metadata/${archId}`);
         const meta = await metaRes.json();
-        const mp3 = (meta.files || []).find((f: any) => f.name?.toLowerCase().endsWith('.mp3'));
-        if (!mp3) throw new Error('MP3 не найден');
-        downloadUrl = `https://archive.org/download/${archId}/${encodeURIComponent(mp3.name)}`;
+        const picked = pickArchiveMp3(meta, archId);
+        if (!picked?.url) throw new Error('MP3 не найден');
+        downloadUrl = picked.url;
+        if (picked.durationSec) {
+          duration = picked.durationSec;
+        }
       }
 
       if (!downloadUrl) throw new Error('Нет ссылки для скачивания');
 
       const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.startsWith('text/')) {
+        throw new Error('Ожидался аудиофайл, но получен текст/HTML');
+      }
+
       const audioBlob = await res.blob();
 
       let coverBlob: Blob | undefined;
@@ -166,7 +181,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         title: item.title,
         artist: item.artist,
         album: item.album,
-        duration: item.duration,
+        duration,
         audioBlob,
         coverBlob,
         addedAt: Date.now(),
@@ -397,9 +412,11 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
                     <button
                       onClick={() => handleDownload(res)}
-                      disabled={isDownloading || isDownloaded}
+                      disabled={isDownloading || isDownloaded || res.isFullVersion !== true}
                       className={`p-2.5 rounded-xl flex-shrink-0 active:scale-95 transition ${
-                        isDownloaded
+                        res.isFullVersion !== true
+                          ? 'opacity-40 cursor-not-allowed bg-white text-black'
+                          : isDownloaded
                           ? 'bg-neutral-800 text-white cursor-default'
                           : 'bg-white text-black hover:bg-neutral-200 shadow-sm'
                       }`}

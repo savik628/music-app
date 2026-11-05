@@ -268,3 +268,28 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
 
   return results;
 }
+
+/**
+ * Picks best MP3 file from Archive.org metadata
+ */
+export function pickArchiveMp3(meta: any, archId?: string): { url: string; durationSec?: number } | null {
+  if (!meta || !Array.isArray(meta.files)) return null;
+
+  const id = archId || meta.metadata?.identifier || meta.identifier;
+  const mp3Files = meta.files.filter((f: any) => typeof f.name === 'string' && f.name.toLowerCase().endsWith('.mp3'));
+  if (mp3Files.length === 0) return null;
+
+  const chosenFile = mp3Files.find((f: any) => f.source === 'original') || mp3Files[0];
+  if (!chosenFile || !chosenFile.name) return null;
+
+  const parsedLength = chosenFile.length ? parseFloat(chosenFile.length) : NaN;
+  const durationSec = !isNaN(parsedLength) && isFinite(parsedLength)
+    ? Math.round(parsedLength)
+    : undefined;
+
+  const url = id
+    ? `https://archive.org/download/${id}/${encodeURIComponent(chosenFile.name)}`
+    : `https://archive.org/download/${encodeURIComponent(chosenFile.name)}`;
+
+  return { url, durationSec };
+}

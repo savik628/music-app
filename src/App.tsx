@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Library,
   Search,
@@ -45,6 +45,9 @@ export function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const stateRef = useRef({ tracks, currentTrack, isShuffle, isRepeat });
+  stateRef.current = { tracks, currentTrack, isShuffle, isRepeat };
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 2500);
@@ -61,6 +64,45 @@ export function App() {
     }
   };
 
+  const handleNextTrack = (fromEnded: boolean = false) => {
+    const { tracks, currentTrack, isShuffle, isRepeat } = stateRef.current;
+    if (tracks.length === 0) return;
+
+    if (isRepeat && fromEnded && currentTrack) {
+      audioEngine.playTrack(currentTrack);
+      return;
+    }
+
+    if (isShuffle) {
+      if (tracks.length > 1 && currentTrack) {
+        const otherTracks = tracks.filter((t) => t.id !== currentTrack.id);
+        const randomIndex = Math.floor(Math.random() * otherTracks.length);
+        audioEngine.playTrack(otherTracks[randomIndex]);
+      } else {
+        audioEngine.playTrack(tracks[0]);
+      }
+      return;
+    }
+
+    const currentIndex = tracks.findIndex((t) => t.id === currentTrack?.id);
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % tracks.length;
+    audioEngine.playTrack(tracks[nextIndex]);
+  };
+
+  const handlePrevTrack = () => {
+    const { tracks, currentTrack } = stateRef.current;
+    if (tracks.length === 0) return;
+
+    if (audioEngine.getState().currentTime > 3) {
+      audioEngine.seek(0);
+      return;
+    }
+
+    const currentIndex = tracks.findIndex((t) => t.id === currentTrack?.id);
+    const prevIndex = currentIndex === -1 ? 0 : (currentIndex - 1 + tracks.length) % tracks.length;
+    audioEngine.playTrack(tracks[prevIndex]);
+  };
+
   useEffect(() => {
     refreshLibrary();
 
@@ -73,7 +115,7 @@ export function App() {
     });
 
     audioEngine.onTrackEnded = () => {
-      handleNextTrack();
+      handleNextTrack(true);
     };
 
     audioEngine.setMediaSessionActions(
@@ -81,8 +123,10 @@ export function App() {
       () => handleNextTrack()
     );
 
-    return () => unsubscribe();
-  }, [tracks, currentTrack, isShuffle, isRepeat]);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   // Handle local files import (iOS Safari friendly)
   const handleFilesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,29 +174,6 @@ export function App() {
   // Playback handlers
   const handlePlayTrack = (track: Track) => {
     audioEngine.playTrack(track);
-  };
-
-  const handleNextTrack = () => {
-    if (tracks.length === 0) return;
-    if (isRepeat && currentTrack) {
-      audioEngine.playTrack(currentTrack);
-      return;
-    }
-    if (isShuffle) {
-      const randomIndex = Math.floor(Math.random() * tracks.length);
-      audioEngine.playTrack(tracks[randomIndex]);
-      return;
-    }
-    const currentIndex = tracks.findIndex((t) => t.id === currentTrack?.id);
-    const nextIndex = (currentIndex + 1) % tracks.length;
-    audioEngine.playTrack(tracks[nextIndex]);
-  };
-
-  const handlePrevTrack = () => {
-    if (tracks.length === 0) return;
-    const currentIndex = tracks.findIndex((t) => t.id === currentTrack?.id);
-    const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
-    audioEngine.playTrack(tracks[prevIndex]);
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -206,6 +227,115 @@ export function App() {
     const s = Math.floor(secs % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  const renderedLibrary = useMemo(() => {
+    if (tracks.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+          <div className="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white mb-4 shadow-xl">
+            <Music className="w-8 h-8" />
+          </div>
+          <p className="text-base font-bold text-white">Медиатека пуста</p>
+          <p className="text-xs text-neutral-400 max-w-xs mt-1.5 mb-6 leading-relaxed">
+            Нажмите «Добавить музыку», чтобы выбрать аудиофайлы с телефона/ПК, или найдите и скачайте треки во вкладке «Поиск».
+          </p>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-5 py-2.5 bg-white text-black rounded-full text-xs font-bold active:scale-95 transition shadow-lg"
+          >
+            Выбрать файлы
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1">
+        {tracks.map((track) => {
+          const isSelected = currentTrack?.id === track.id;
+          return (
+            <div
+              key={track.id}
+              onClick={() => handlePlayTrack(track)}
+              className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition ${
+                isSelected
+                  ? 'bg-neutral-800/90 text-white border border-neutral-700/80 shadow'
+                  : 'hover:bg-neutral-900/60 active:bg-neutral-900 text-neutral-300'
+              }`}
+            >
+              <div className="flex items-center gap-3 overflow-hidden mr-2">
+                <div className="w-11 h-11 flex-shrink-0">
+                  <CoverImage
+                    blob={track.coverBlob}
+                    alt={track.title}
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-sm font-semibold truncate leading-tight text-white flex items-center gap-2">
+                    {track.title}
+                    {isSelected && isPlaying && (
+                      <span className="flex items-end gap-0.5 h-3">
+                        <span className="w-0.5 bg-white rounded-full eq-bar-1" />
+                        <span className="w-0.5 bg-white rounded-full eq-bar-2" />
+                        <span className="w-0.5 bg-white rounded-full eq-bar-3" />
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-neutral-400 truncate mt-0.5">
+                    {track.artist} {track.album ? `• ${track.album}` : ''}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className="text-[11px] text-neutral-500 font-mono pr-1">
+                  {formatDuration(track.duration)}
+                </span>
+
+                {!track.coverBlob && (
+                  <button
+                    onClick={(e) => handleFindCover(track, e)}
+                    className="p-1.5 text-neutral-400 hover:text-white transition"
+                    title="Найти заставку в сети"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                  </button>
+                )}
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTrackForAlbumModal(track);
+                  }}
+                  className="p-1.5 text-neutral-400 hover:text-white transition"
+                  title="В альбом"
+                >
+                  <FolderPlus className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={(e) => handleToggleFavorite(track.id, e)}
+                  className={`p-1.5 transition ${
+                    track.isFavorite ? 'text-white' : 'text-neutral-500 hover:text-white'
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${track.isFavorite ? 'fill-current' : ''}`} />
+                </button>
+
+                <button
+                  onClick={(e) => handleDelete(track.id, e)}
+                  className="p-1.5 text-neutral-500 hover:text-white transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }, [tracks, currentTrack?.id, isPlaying]);
 
   return (
     <div className="app-container">
@@ -262,110 +392,7 @@ export function App() {
         ) : (
           <>
             {/* Library / Tracks */}
-            {activeTab === 'library' && (
-              <div className="space-y-1">
-                {tracks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-                    <div className="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white mb-4 shadow-xl">
-                      <Music className="w-8 h-8" />
-                    </div>
-                    <p className="text-base font-bold text-white">Медиатека пуста</p>
-                    <p className="text-xs text-neutral-400 max-w-xs mt-1.5 mb-6 leading-relaxed">
-                      Нажмите «Добавить музыку», чтобы выбрать аудиофайлы с телефона/ПК, или найдите и скачайте треки во вкладке «Поиск».
-                    </p>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-5 py-2.5 bg-white text-black rounded-full text-xs font-bold active:scale-95 transition shadow-lg"
-                    >
-                      Выбрать файлы
-                    </button>
-                  </div>
-                ) : (
-                  tracks.map((track) => {
-                    const isSelected = currentTrack?.id === track.id;
-                    return (
-                      <div
-                        key={track.id}
-                        onClick={() => handlePlayTrack(track)}
-                        className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition ${
-                          isSelected
-                            ? 'bg-neutral-800/90 text-white border border-neutral-700/80 shadow'
-                            : 'hover:bg-neutral-900/60 active:bg-neutral-900 text-neutral-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 overflow-hidden mr-2">
-                          <div className="w-11 h-11 flex-shrink-0">
-                            <CoverImage
-                              blob={track.coverBlob}
-                              alt={track.title}
-                              className="w-full h-full object-cover rounded-xl"
-                            />
-                          </div>
-                          <div className="overflow-hidden">
-                            <p className="text-sm font-semibold truncate leading-tight text-white flex items-center gap-2">
-                              {track.title}
-                              {isSelected && isPlaying && (
-                                <span className="flex items-end gap-0.5 h-3">
-                                  <span className="w-0.5 bg-white rounded-full eq-bar-1" />
-                                  <span className="w-0.5 bg-white rounded-full eq-bar-2" />
-                                  <span className="w-0.5 bg-white rounded-full eq-bar-3" />
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-xs text-neutral-400 truncate mt-0.5">
-                              {track.artist} {track.album ? `• ${track.album}` : ''}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-[11px] text-neutral-500 font-mono pr-1">
-                            {formatDuration(track.duration)}
-                          </span>
-
-                          {!track.coverBlob && (
-                            <button
-                              onClick={(e) => handleFindCover(track, e)}
-                              className="p-1.5 text-neutral-400 hover:text-white transition"
-                              title="Найти заставку в сети"
-                            >
-                              <Sparkles className="w-4 h-4 text-amber-400" />
-                            </button>
-                          )}
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTrackForAlbumModal(track);
-                            }}
-                            className="p-1.5 text-neutral-400 hover:text-white transition"
-                            title="В альбом"
-                          >
-                            <FolderPlus className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={(e) => handleToggleFavorite(track.id, e)}
-                            className={`p-1.5 transition ${
-                              track.isFavorite ? 'text-white' : 'text-neutral-500 hover:text-white'
-                            }`}
-                          >
-                            <Heart className={`w-4 h-4 ${track.isFavorite ? 'fill-current' : ''}`} />
-                          </button>
-
-                          <button
-                            onClick={(e) => handleDelete(track.id, e)}
-                            className="p-1.5 text-neutral-500 hover:text-white transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+            {activeTab === 'library' && renderedLibrary}
 
             {/* Albums Tab (Full support for custom & tag albums) */}
             {activeTab === 'albums' && (
@@ -422,7 +449,7 @@ export function App() {
             track={currentTrack}
             isPlaying={isPlaying}
             onOpen={() => setIsFullPlayerOpen(true)}
-            onNext={handleNextTrack}
+            onNext={() => handleNextTrack()}
           />
         </div>
       )}
@@ -490,7 +517,7 @@ export function App() {
           currentTime={currentTime}
           duration={duration}
           onClose={() => setIsFullPlayerOpen(false)}
-          onNext={handleNextTrack}
+          onNext={() => handleNextTrack()}
           onPrev={handlePrevTrack}
           isShuffle={isShuffle}
           toggleShuffle={() => setIsShuffle(!isShuffle)}
