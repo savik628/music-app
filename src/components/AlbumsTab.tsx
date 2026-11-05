@@ -143,7 +143,7 @@ export const AlbumsTab: React.FC<AlbumsTabProps> = ({
     const firstCover = activeAlbum.tracks.find((t) => t.coverBlob)?.coverBlob;
 
     return (
-      <div className="space-y-4 pb-44 animate-in fade-in duration-200">
+      <div className="space-y-4 pb-8 animate-in fade-in duration-200">
         {/* Back navigation & header */}
         <div className="flex items-center justify-between pt-1">
           <button
@@ -275,7 +275,7 @@ export const AlbumsTab: React.FC<AlbumsTabProps> = ({
   }
 
   return (
-    <div className="space-y-4 pb-44">
+    <div className="space-y-4 pb-8">
       {/* Toast */}
       {toastMessage && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-white text-black font-semibold text-xs px-4 py-2 rounded-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">

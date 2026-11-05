@@ -9,6 +9,8 @@ import {
   Check,
   Flame,
   X,
+  Globe,
+  Radio,
 } from 'lucide-react';
 import { saveTrack } from '../db';
 import type { Track } from '../types';
@@ -174,16 +176,53 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       setDownloadedIds((prev) => new Set(prev).add(item.id));
       onTrackDownloaded();
     } catch {
-      alert('Не удалось скачать файл напрямую. Откройте Sefon по ссылке внизу списка для прямого MP3.');
+      alert('Не удалось скачать файл напрямую. Воспользуйтесь одним из сайтов ниже для прямого MP3 файла.');
     } finally {
       setDownloadingId(null);
     }
   };
 
   const displayList = isSearched ? searchResults : popularTracks;
+  const currentQueryTerm = query.trim();
+
+  // Download Portals Links (SoundCloud, Sefon, Hitmo, Zaycev)
+  const downloadSites = [
+    {
+      name: 'SoundCloud',
+      badge: 'Треки и ремиксы',
+      color: 'from-[#ff5500]/20 to-[#ff3300]/10 border-[#ff5500]/30 hover:border-[#ff5500]',
+      url: currentQueryTerm
+        ? `https://soundcloud.com/search?q=${encodeURIComponent(currentQueryTerm)}`
+        : 'https://soundcloud.com/discover',
+    },
+    {
+      name: 'Sefon.pro',
+      badge: 'Прямой MP3',
+      color: 'from-purple-900/20 to-purple-800/10 border-purple-800/30 hover:border-purple-600',
+      url: currentQueryTerm
+        ? `https://sefon.pro/search/?q=${encodeURIComponent(currentQueryTerm)}`
+        : 'https://sefon.pro/mp3/',
+    },
+    {
+      name: 'Hitmo Top',
+      badge: 'Быстрая загрузка',
+      color: 'from-blue-900/20 to-blue-800/10 border-blue-800/30 hover:border-blue-600',
+      url: currentQueryTerm
+        ? `https://rus.hitmotop.com/search?q=${encodeURIComponent(currentQueryTerm)}`
+        : 'https://rus.hitmotop.com/',
+    },
+    {
+      name: 'Zaycev.net',
+      badge: 'Миллионы песен',
+      color: 'from-emerald-900/20 to-emerald-800/10 border-emerald-800/30 hover:border-emerald-600',
+      url: currentQueryTerm
+        ? `https://zaycev.net/search.html?query_search=${encodeURIComponent(currentQueryTerm)}`
+        : 'https://zaycev.net/',
+    },
+  ];
 
   return (
-    <div className="space-y-4 pb-48">
+    <div className="space-y-4 pb-6">
       {/* Clean Apple Minimalist Search Bar */}
       <form onSubmit={(e) => handleSearch(e)} className="relative">
         <SearchIcon className="absolute left-3.5 top-3.5 w-4 h-4 text-neutral-400" />
@@ -217,6 +256,46 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         </button>
       </form>
 
+      {/* Quick Search Shortcuts */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <button
+          onClick={() => {
+            setQuery('N1NT3NDO');
+            handleSearch(undefined, 'N1NT3NDO');
+          }}
+          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
+        >
+          N1NT3NDO
+        </button>
+        <button
+          onClick={() => {
+            setQuery('Miyagi');
+            handleSearch(undefined, 'Miyagi');
+          }}
+          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
+        >
+          Miyagi
+        </button>
+        <button
+          onClick={() => {
+            setQuery('Скриптонит');
+            handleSearch(undefined, 'Скриптонит');
+          }}
+          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
+        >
+          Скриптонит
+        </button>
+        <button
+          onClick={() => {
+            setQuery('Баста');
+            handleSearch(undefined, 'Баста');
+          }}
+          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
+        >
+          Баста
+        </button>
+      </div>
+
       {/* Section Title */}
       <div className="flex items-center justify-between px-1 pt-1">
         <div className="flex items-center gap-1.5">
@@ -238,25 +317,17 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         </div>
       )}
 
-      {/* Empty Search Result with Direct Sefon Link */}
+      {/* Empty Search Result */}
       {isSearched && !loading && searchResults.length === 0 && (
-        <div className="text-center py-12 px-4 bg-neutral-900/40 rounded-2xl border border-neutral-800/80 space-y-3">
-          <p className="text-sm font-semibold text-white">В открытом каталоге трек не найден</p>
+        <div className="text-center py-8 px-4 bg-neutral-900/40 rounded-3xl border border-neutral-800/80 space-y-2">
+          <p className="text-sm font-bold text-white">В каталоге трек не найден</p>
           <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
-            Вы можете в один клик найти и скачать этот трек в MP3 на Sefon, а затем нажать «+ Добавить музыку» вверху.
+            Скачайте песню в один клик на любом сайте ниже и нажмите «+ Добавить музыку» вверху — трек сразу сохранится в плеер, а обложка загрузится автоматически!
           </p>
-          <a
-            href={`https://sefon.pro/search/?q=${encodeURIComponent(query.trim())}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-black rounded-xl text-xs font-bold active:scale-95 transition shadow-lg"
-          >
-            Найти «{query}» на Sefon.pro <ExternalLink className="w-3.5 h-3.5" />
-          </a>
         </div>
       )}
 
-      {/* Songs List (Popular or Search Results) */}
+      {/* Songs List */}
       {!loading && displayList.length > 0 && (
         <div className="space-y-1.5">
           {displayList.map((res) => {
@@ -346,21 +417,41 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         </div>
       )}
 
-      {/* Sefon Quick Direct Link */}
-      <div className="pt-2">
-        <a
-          href={
-            query.trim()
-              ? `https://sefon.pro/search/?q=${encodeURIComponent(query.trim())}`
-              : 'https://sefon.pro/mp3/'
-          }
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-between p-3.5 bg-neutral-950 border border-neutral-800/80 rounded-2xl active:scale-[0.99] transition text-xs font-semibold text-neutral-400 hover:text-white"
-        >
-          <span>{query.trim() ? `Искать «${query.trim()}» на Sefon.pro` : 'Открыть каталог Sefon.pro'}</span>
-          <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
-        </a>
+      {/* Download Portals: Where to download songs directly */}
+      <div className="pt-2 space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <Globe className="w-3.5 h-3.5 text-neutral-400" />
+            Где скачать в MP3:
+          </span>
+          <span className="text-[10px] text-neutral-500 font-medium">
+            открывается в браузере
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {downloadSites.map((site) => (
+            <a
+              key={site.name}
+              href={site.url}
+              target="_blank"
+              rel="noreferrer"
+              className={`p-3 rounded-2xl bg-gradient-to-b ${site.color} border transition active:scale-[0.98] flex flex-col justify-between`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-white">{site.name}</span>
+                <ExternalLink className="w-3 h-3 text-neutral-400" />
+              </div>
+              <span className="text-[10px] text-neutral-400 truncate font-medium">
+                {currentQueryTerm ? `«${currentQueryTerm}»` : site.badge}
+              </span>
+            </a>
+          ))}
+        </div>
+
+        <p className="text-[11px] text-neutral-500 px-1 leading-relaxed">
+          💡 Скачайте песню с любого из этих сайтов, затем нажмите «+ Добавить музыку» вверху — трек сохранится в плеер навсегда, а заставка подберется сама.
+        </p>
       </div>
     </div>
   );

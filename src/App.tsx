@@ -254,7 +254,7 @@ export function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 py-3 pb-[calc(110px+env(safe-area-inset-bottom,0px))]">
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-neutral-500">
             <Loader2 className="w-6 h-6 animate-spin text-white" />
@@ -415,9 +415,9 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Mini Player - Mathematical precision above Tab Bar */}
+      {/* Floating Mini Player - Docked seamlessly right above Tab Bar */}
       {currentTrack && !isFullPlayerOpen && (
-        <div className="fixed bottom-[calc(50px+env(safe-area-inset-bottom,0px)+8px)] left-3 right-3 z-30">
+        <div className="flex-shrink-0 px-3 pb-2 z-30 animate-in slide-in-from-bottom-2 duration-150">
           <MiniPlayer
             track={currentTrack}
             isPlaying={isPlaying}
@@ -427,8 +427,8 @@ export function App() {
         </div>
       )}
 
-      {/* Clean Solid iOS Tab Bar - No awkward raised gap */}
-      <nav className="apple-tab-bar fixed bottom-0 left-0 right-0 z-20 px-3 pb-safe flex items-center justify-around h-[calc(50px+env(safe-area-inset-bottom,0px))]">
+      {/* Clean Solid iOS Tab Bar - Permanently anchored to the bottom edge */}
+      <nav className="apple-tab-bar flex-shrink-0 w-full z-20 px-3 pt-1.5 pb-[max(env(safe-area-inset-bottom,0px),14px)] flex items-center justify-around">
         <button
           onClick={() => setActiveTab('library')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
