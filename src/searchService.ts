@@ -9,6 +9,7 @@ export interface SearchTrack {
   source?: 'itunes' | 'archive' | 'soundcloud';
   soundcloudUrl?: string;
   soundcloudEmbedHtml?: string;
+  isFullVersion?: boolean;
 }
 
 // Top Popular Songs Cache
@@ -48,10 +49,11 @@ export async function getPopularTracks(): Promise<SearchTrack[]> {
           title,
           artist,
           album: e['im:collection']?.['im:name']?.label || 'Популярное',
-          coverUrl: coverUrl ? coverUrl.replace(/\/\d+x\d+bb/, '/300x300bb') : undefined,
+          coverUrl: coverUrl ? coverUrl.replace(/\/\d+x\d+bb/, '/400x400bb') : undefined,
           audioUrl,
           duration: 30,
           source: 'itunes',
+          isFullVersion: false,
         });
       }
     });
@@ -59,7 +61,7 @@ export async function getPopularTracks(): Promise<SearchTrack[]> {
     console.warn('Failed to load RSS top songs, using curated fallback:', err);
   }
 
-  // If RSS failed or returned little, provide solid popular fallback
+  // Fallback if RSS empty
   if (tracks.length < 5) {
     const fallbackSearch = await searchTracks('Miyagi');
     tracks.push(...fallbackSearch.slice(0, 10));
@@ -90,7 +92,7 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
     let rawTitle = data.title || 'SoundCloud Track';
     let artist = data.author_name || 'SoundCloud';
 
-    // Remove "by Author" suffix if added by SoundCloud oembed
+    // Remove "by Author" suffix
     rawTitle = rawTitle.replace(/\s+by\s+.*$/i, '').trim();
 
     // Check if title has "Artist - Track"
@@ -105,7 +107,7 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
       title = parts.slice(1).join('–').trim();
     }
 
-    // High quality artwork (500x500 instead of default small thumbnail)
+    // High quality artwork (500x500)
     let coverUrl = data.thumbnail_url;
     if (coverUrl) {
       coverUrl = coverUrl.replace(/-large\./, '-t500x500.').replace(/-badge\./, '-t500x500.');
@@ -117,10 +119,11 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
       artist,
       album: 'SoundCloud',
       coverUrl,
-      duration: 180,
+      duration: 210,
       source: 'soundcloud',
       soundcloudUrl: cleanUrl,
       soundcloudEmbedHtml: data.html,
+      isFullVersion: true,
     };
   } catch (err) {
     console.error('Error resolving SoundCloud track:', err);
@@ -128,7 +131,7 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
   }
 }
 
-// Multi-catalog fast search: iTunes RU + US, Archive.org, and SoundCloud resolution
+// Multi-catalog fast search: Open Audio Archive, iTunes RU & Global, SoundCloud
 export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const q = query.trim();
   if (!q) return [];
@@ -137,16 +140,7 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
   if (isSoundCloudUrl(q)) {
     const scTrack = await resolveSoundCloud(q);
     if (scTrack) {
-      // Also try to find audio stream / preview for this track in audio archives
-      const related = await searchTracks(`${scTrack.artist} ${scTrack.title}`);
-      const audioMatch = related.find((t) => t.audioUrl);
-      if (audioMatch) {
-        scTrack.audioUrl = audioMatch.audioUrl;
-        if (!scTrack.duration || scTrack.duration === 180) {
-          scTrack.duration = audioMatch.duration;
-        }
-      }
-      return [scTrack, ...related.slice(0, 15)];
+      return [scTrack];
     }
   }
 
@@ -155,14 +149,50 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const encodedQuery = encodeURIComponent(q);
 
   try {
-    // Search Russia & Global catalog simultaneously
+    // Search Russia & Global iTunes and Open Archive simultaneously
     const [ruRes, globalRes, archiveRes] = await Promise.allSettled([
       fetch(`https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=25`).then((r) => r.json()),
       fetch(`https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=25`).then((r) => r.json()),
       fetch(`https://archive.org/advancedsearch.php?q=(${encodedQuery})+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=15&output=json`).then((r) => r.json()),
     ]);
 
-    // 1. iTunes RU & Global
+    // 1. Open Audio Archive items (Full MP3 songs)
+    if (archiveRes.status === 'fulfilled' && archiveRes.value?.response?.docs) {
+      const docs = archiveRes.value.response.docs;
+      docs.forEach((d: any) => {
+        const rawTitle = d.title || q;
+        const key = `${d.creator || ''} - ${rawTitle}`.toLowerCase();
+        if (!seen.has(key) && d.identifier) {
+          seen.add(key);
+
+          let artist = d.creator || 'Музыка';
+          let title = rawTitle;
+          if (rawTitle.includes('–')) {
+            const parts = rawTitle.split('–');
+            artist = parts[0].trim();
+            title = parts.slice(1).join('–').trim();
+          } else if (rawTitle.includes('-')) {
+            const parts = rawTitle.split('-');
+            artist = parts[0].trim();
+            title = parts.slice(1).join('-').trim();
+          }
+
+          results.push({
+            id: `arch-${d.identifier}`,
+            title,
+            artist,
+            album: d.album || 'Медиатека',
+            coverUrl: `https://archive.org/services/img/${d.identifier}`,
+            audioUrl: `https://archive.org/download/${d.identifier}`,
+            duration: 180,
+            source: 'archive',
+            isFullVersion: true,
+          });
+        }
+      });
+    }
+
+    // 2. iTunes RU & Global (30s preview + original high-res cover)
     const itunesList: any[] = [];
     if (ruRes.status === 'fulfilled' && ruRes.value?.results) {
       itunesList.push(...ruRes.value.results);
@@ -184,44 +214,10 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
           audioUrl: t.previewUrl,
           duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 30,
           source: 'itunes',
+          isFullVersion: false,
         });
       }
     });
-
-    // 2. Open Audio Archive items
-    if (archiveRes.status === 'fulfilled' && archiveRes.value?.response?.docs) {
-      const docs = archiveRes.value.response.docs;
-      docs.forEach((d: any) => {
-        const rawTitle = d.title || q;
-        const key = `${d.creator || ''} - ${rawTitle}`.toLowerCase();
-        if (!seen.has(key) && d.identifier) {
-          seen.add(key);
-
-          let artist = d.creator || 'Русская музыка';
-          let title = rawTitle;
-          if (rawTitle.includes('–')) {
-            const parts = rawTitle.split('–');
-            artist = parts[0].trim();
-            title = parts.slice(1).join('–').trim();
-          } else if (rawTitle.includes('-')) {
-            const parts = rawTitle.split('-');
-            artist = parts[0].trim();
-            title = parts.slice(1).join('-').trim();
-          }
-
-          results.push({
-            id: `arch-${d.identifier}`,
-            title,
-            artist,
-            album: d.album || 'Медиатека',
-            coverUrl: `https://archive.org/services/img/${d.identifier}`,
-            audioUrl: `https://archive.org/download/${d.identifier}`,
-            duration: 0,
-            source: 'archive',
-          });
-        }
-      });
-    }
   } catch (err) {
     console.error('Search query error:', err);
   }

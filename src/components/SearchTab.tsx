@@ -11,6 +11,7 @@ import {
   X,
   Globe,
   Radio,
+  Sparkles,
 } from 'lucide-react';
 import { saveTrack } from '../db';
 import type { Track } from '../types';
@@ -176,7 +177,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       setDownloadedIds((prev) => new Set(prev).add(item.id));
       onTrackDownloaded();
     } catch {
-      alert('Не удалось скачать файл напрямую. Воспользуйтесь одним из сайтов ниже для прямого MP3 файла.');
+      alert('Не удалось скачать файл напрямую. Откройте один из сайтов ниже для скачивания полного MP3.');
     } finally {
       setDownloadingId(null);
     }
@@ -185,36 +186,36 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
   const displayList = isSearched ? searchResults : popularTracks;
   const currentQueryTerm = query.trim();
 
-  // Download Portals Links (SoundCloud, Sefon, Hitmo, Zaycev)
+  // Top Portals for downloading full MP3 files
   const downloadSites = [
     {
-      name: 'SoundCloud',
-      badge: 'Треки и ремиксы',
-      color: 'from-[#ff5500]/20 to-[#ff3300]/10 border-[#ff5500]/30 hover:border-[#ff5500]',
-      url: currentQueryTerm
-        ? `https://soundcloud.com/search?q=${encodeURIComponent(currentQueryTerm)}`
-        : 'https://soundcloud.com/discover',
-    },
-    {
       name: 'Sefon.pro',
-      badge: 'Прямой MP3',
-      color: 'from-purple-900/20 to-purple-800/10 border-purple-800/30 hover:border-purple-600',
+      badge: 'Прямой MP3 файл',
+      color: 'from-purple-900/30 to-purple-950/40 border-purple-800/40 hover:border-purple-600',
       url: currentQueryTerm
         ? `https://sefon.pro/search/?q=${encodeURIComponent(currentQueryTerm)}`
         : 'https://sefon.pro/mp3/',
     },
     {
       name: 'Hitmo Top',
-      badge: 'Быстрая загрузка',
-      color: 'from-blue-900/20 to-blue-800/10 border-blue-800/30 hover:border-blue-600',
+      badge: 'Все хиты и новинки',
+      color: 'from-blue-900/30 to-blue-950/40 border-blue-800/40 hover:border-blue-600',
       url: currentQueryTerm
         ? `https://rus.hitmotop.com/search?q=${encodeURIComponent(currentQueryTerm)}`
         : 'https://rus.hitmotop.com/',
     },
     {
+      name: 'SoundCloud',
+      badge: 'Треки и ремиксы',
+      color: 'from-[#ff5500]/20 to-[#ff3300]/10 border-[#ff5500]/40 hover:border-[#ff5500]',
+      url: currentQueryTerm
+        ? `https://soundcloud.com/search?q=${encodeURIComponent(currentQueryTerm)}`
+        : 'https://soundcloud.com/discover',
+    },
+    {
       name: 'Zaycev.net',
-      badge: 'Миллионы песен',
-      color: 'from-emerald-900/20 to-emerald-800/10 border-emerald-800/30 hover:border-emerald-600',
+      badge: 'Каталог песен',
+      color: 'from-emerald-900/30 to-emerald-950/40 border-emerald-800/40 hover:border-emerald-600',
       url: currentQueryTerm
         ? `https://zaycev.net/search.html?query_search=${encodeURIComponent(currentQueryTerm)}`
         : 'https://zaycev.net/',
@@ -222,7 +223,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
   ];
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4 pb-4">
       {/* Clean Apple Minimalist Search Bar */}
       <form onSubmit={(e) => handleSearch(e)} className="relative">
         <SearchIcon className="absolute left-3.5 top-3.5 w-4 h-4 text-neutral-400" />
@@ -258,42 +259,18 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
       {/* Quick Search Shortcuts */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-        <button
-          onClick={() => {
-            setQuery('N1NT3NDO');
-            handleSearch(undefined, 'N1NT3NDO');
-          }}
-          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
-        >
-          N1NT3NDO
-        </button>
-        <button
-          onClick={() => {
-            setQuery('Miyagi');
-            handleSearch(undefined, 'Miyagi');
-          }}
-          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
-        >
-          Miyagi
-        </button>
-        <button
-          onClick={() => {
-            setQuery('Скриптонит');
-            handleSearch(undefined, 'Скриптонит');
-          }}
-          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
-        >
-          Скриптонит
-        </button>
-        <button
-          onClick={() => {
-            setQuery('Баста');
-            handleSearch(undefined, 'Баста');
-          }}
-          className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
-        >
-          Баста
-        </button>
+        {['N1NT3NDO', 'Miyagi', 'Скриптонит', 'Баста'].map((artist) => (
+          <button
+            key={artist}
+            onClick={() => {
+              setQuery(artist);
+              handleSearch(undefined, artist);
+            }}
+            className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 whitespace-nowrap active:scale-95 transition"
+          >
+            {artist}
+          </button>
+        ))}
       </div>
 
       {/* Section Title */}
@@ -301,11 +278,11 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         <div className="flex items-center gap-1.5">
           {!isSearched && <Flame className="w-4 h-4 text-white" />}
           <h2 className="text-sm font-bold text-white tracking-tight">
-            {isSearched ? `Результаты (${searchResults.length})` : 'Популярные песни'}
+            {isSearched ? `Результаты поиска (${searchResults.length})` : 'Популярные хиты'}
           </h2>
         </div>
         <span className="text-[11px] text-neutral-400 font-medium">
-          ▶ Слушать • ⬇ В офлайн
+          ▶ Превью • ⬇ В память
         </span>
       </div>
 
@@ -313,116 +290,143 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       {(loading || (popularLoading && !isSearched)) && (
         <div className="flex flex-col items-center justify-center py-16 text-neutral-500 space-y-2">
           <Loader2 className="w-6 h-6 animate-spin text-white" />
-          <span className="text-xs">Загрузка музыки...</span>
+          <span className="text-xs">Загрузка каталога...</span>
         </div>
       )}
 
       {/* Empty Search Result */}
       {isSearched && !loading && searchResults.length === 0 && (
         <div className="text-center py-8 px-4 bg-neutral-900/40 rounded-3xl border border-neutral-800/80 space-y-2">
-          <p className="text-sm font-bold text-white">В каталоге трек не найден</p>
+          <p className="text-sm font-bold text-white">В открытом каталоге трек не найден</p>
           <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
-            Скачайте песню в один клик на любом сайте ниже и нажмите «+ Добавить музыку» вверху — трек сразу сохранится в плеер, а обложка загрузится автоматически!
+            Скачайте полную песню в MP3 на одном из сайтов ниже, затем нажмите кнопку «+ Добавить музыку» — трек навсегда сохранится в плеер офлайн!
           </p>
         </div>
       )}
 
       {/* Songs List */}
       {!loading && displayList.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {displayList.map((res) => {
             const isDownloaded = downloadedIds.has(res.id);
             const isDownloading = downloadingId === res.id;
             const isPreviewing = previewTrackId === res.id;
 
+            // Direct external link to full MP3 download on Sefon for this song
+            const fullMp3SearchUrl = `https://sefon.pro/search/?q=${encodeURIComponent(`${res.artist} ${res.title}`.trim())}`;
+
             return (
               <div
                 key={res.id}
-                className={`flex items-center justify-between p-2.5 rounded-2xl border transition ${
+                className={`p-2.5 rounded-2xl border transition ${
                   isPreviewing
                     ? 'bg-neutral-800/90 border-neutral-600 shadow-md'
                     : 'bg-neutral-900/60 border-neutral-800/70 hover:bg-neutral-900'
                 }`}
               >
-                <div className="flex items-center gap-3 overflow-hidden mr-2">
-                  {/* Play preview button with cover thumbnail */}
-                  <button
-                    onClick={() => togglePreview(res)}
-                    className="relative w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 group active:scale-95 transition"
-                  >
-                    {res.coverUrl ? (
-                      <img
-                        src={res.coverUrl}
-                        alt={res.title}
-                        className="w-full h-full object-cover rounded-xl"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-400">
-                        <Play className="w-4 h-4 fill-current" />
-                      </div>
-                    )}
-                    {/* Play/Pause Overlay */}
-                    <div
-                      className={`absolute inset-0 flex items-center justify-center bg-black/40 transition ${
-                        isPreviewing ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'
-                      }`}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 overflow-hidden mr-2">
+                    {/* Play preview button with cover thumbnail */}
+                    <button
+                      onClick={() => togglePreview(res)}
+                      className="relative w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 group active:scale-95 transition"
                     >
-                      {isPreviewing ? (
-                        <Pause className="w-5 h-5 text-white fill-current" />
+                      {res.coverUrl ? (
+                        <img
+                          src={res.coverUrl}
+                          alt={res.title}
+                          className="w-full h-full object-cover rounded-xl"
+                        />
                       ) : (
-                        <Play className="w-5 h-5 text-white fill-current translate-x-0.5" />
+                        <div className="w-full h-full bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-400">
+                          <Play className="w-4 h-4 fill-current" />
+                        </div>
                       )}
-                    </div>
-                  </button>
+                      {/* Play/Pause Overlay */}
+                      <div
+                        className={`absolute inset-0 flex items-center justify-center bg-black/40 transition ${
+                          isPreviewing ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'
+                        }`}
+                      >
+                        {isPreviewing ? (
+                          <Pause className="w-5 h-5 text-white fill-current" />
+                        ) : (
+                          <Play className="w-5 h-5 text-white fill-current translate-x-0.5" />
+                        )}
+                      </div>
+                    </button>
 
-                  {/* Title and artist */}
-                  <div className="overflow-hidden">
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                      <p className="text-sm font-semibold text-white truncate leading-tight">
-                        {res.title}
-                      </p>
-                      {res.source === 'soundcloud' && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#ff5500]/20 text-[#ff7700] border border-[#ff5500]/40 flex-shrink-0">
-                          SoundCloud
-                        </span>
-                      )}
+                    {/* Title, artist & badges */}
+                    <div className="overflow-hidden">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <p className="text-sm font-semibold text-white truncate leading-tight">
+                          {res.title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-neutral-400 truncate">
+                          {res.artist}
+                        </p>
+                        {res.isFullVersion ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+                            Полный MP3
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-400 flex-shrink-0">
+                            30с демо
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-neutral-400 truncate mt-0.5">
-                      {res.artist}
-                    </p>
+                  </div>
+
+                  {/* Actions: Download button & Full MP3 External Link */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {!res.isFullVersion && (
+                      <a
+                        href={fullMp3SearchUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white text-[11px] font-bold rounded-xl border border-neutral-700/80 transition flex items-center gap-1"
+                        title="Скачать полную песню целиком"
+                      >
+                        <span>Полный MP3</span>
+                        <ExternalLink className="w-3 h-3 text-neutral-400" />
+                      </a>
+                    )}
+
+                    <button
+                      onClick={() => handleDownload(res)}
+                      disabled={isDownloading || isDownloaded}
+                      className={`p-2.5 rounded-xl flex-shrink-0 active:scale-95 transition ${
+                        isDownloaded
+                          ? 'bg-neutral-800 text-white cursor-default'
+                          : 'bg-white text-black hover:bg-neutral-200 shadow-sm'
+                      }`}
+                      title={res.isFullVersion ? 'Скачать полный трек' : 'Скачать демо-превью в офлайн'}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-black" />
+                      ) : isDownloaded ? (
+                        <Check className="w-4 h-4 text-white" />
+                      ) : (
+                        <Download className="w-4 h-4 text-black" />
+                      )}
+                    </button>
                   </div>
                 </div>
-
-                {/* Download button */}
-                <button
-                  onClick={() => handleDownload(res)}
-                  disabled={isDownloading || isDownloaded}
-                  className={`p-2.5 rounded-xl flex-shrink-0 active:scale-95 transition ${
-                    isDownloaded
-                      ? 'bg-neutral-800 text-white cursor-default'
-                      : 'bg-white text-black hover:bg-neutral-200 shadow-sm'
-                  }`}
-                >
-                  {isDownloading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-black" />
-                  ) : isDownloaded ? (
-                    <Check className="w-4 h-4 text-white" />
-                  ) : (
-                    <Download className="w-4 h-4 text-black" />
-                  )}
-                </button>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Download Portals: Where to download songs directly */}
-      <div className="pt-2 space-y-2.5">
+      {/* Download Portals: Where to download full MP3 songs */}
+      <div className="pt-3 space-y-2.5">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5 text-neutral-400" />
-            Где скачать в MP3:
+            Где скачать полную песню в MP3:
           </span>
           <span className="text-[10px] text-neutral-500 font-medium">
             открывается в браузере
@@ -443,15 +447,23 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                 <ExternalLink className="w-3 h-3 text-neutral-400" />
               </div>
               <span className="text-[10px] text-neutral-400 truncate font-medium">
-                {currentQueryTerm ? `«${currentQueryTerm}»` : site.badge}
+                {currentQueryTerm ? `Найти «${currentQueryTerm}»` : site.badge}
               </span>
             </a>
           ))}
         </div>
 
-        <p className="text-[11px] text-neutral-500 px-1 leading-relaxed">
-          💡 Скачайте песню с любого из этих сайтов, затем нажмите «+ Добавить музыку» вверху — трек сохранится в плеер навсегда, а заставка подберется сама.
-        </p>
+        <div className="p-3 bg-neutral-900/50 border border-neutral-800 rounded-2xl space-y-1">
+          <p className="text-xs font-bold text-white flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            Как слушать любые полные треки офлайн:
+          </p>
+          <p className="text-[11px] text-neutral-400 leading-relaxed">
+            1. Нажмите на любой сайт выше (например, Sefon или Hitmo) и скачайте MP3 файл песни.<br />
+            2. Нажмите кнопку <strong>«+ Добавить музыку»</strong> вверху экрана.<br />
+            3. Песня сразу появится в медиатеке целиком, а обложка в высоком качестве подберется автоматически!
+          </p>
+        </div>
       </div>
     </div>
   );

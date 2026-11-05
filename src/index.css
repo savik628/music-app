@@ -57,12 +57,24 @@
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Solid & Refined Tab Bar */
+/* Solid & Refined Tab Bar - Compact & Flush to Bottom */
 .apple-tab-bar {
-  background-color: rgba(14, 14, 16, 0.92);
+  background-color: rgba(14, 14, 16, 0.95);
   backdrop-filter: blur(25px) saturate(180%);
   -webkit-backdrop-filter: blur(25px) saturate(180%);
   border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .apple-tab-bar {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px) - 16px, 8px);
+  }
+}
+
+@media (display-mode: standalone) {
+  .apple-tab-bar {
+    padding-bottom: 8px !important;
+  }
 }
 
 /* Floating Mini Player Island */

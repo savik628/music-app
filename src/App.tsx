@@ -417,7 +417,7 @@ export function App() {
 
       {/* Floating Mini Player - Docked seamlessly right above Tab Bar */}
       {currentTrack && !isFullPlayerOpen && (
-        <div className="flex-shrink-0 px-3 pb-2 z-30 animate-in slide-in-from-bottom-2 duration-150">
+        <div className="flex-shrink-0 px-3 pb-1.5 z-30 animate-in slide-in-from-bottom-2 duration-150">
           <MiniPlayer
             track={currentTrack}
             isPlaying={isPlaying}
@@ -427,8 +427,8 @@ export function App() {
         </div>
       )}
 
-      {/* Clean Solid iOS Tab Bar - Permanently anchored to the bottom edge */}
-      <nav className="apple-tab-bar flex-shrink-0 w-full z-20 px-3 pt-1.5 pb-[max(env(safe-area-inset-bottom,0px),14px)] flex items-center justify-around">
+      {/* Clean Solid iOS Tab Bar - Flush, compact, zero dead space */}
+      <nav className="apple-tab-bar flex-shrink-0 w-full z-20 px-3 pt-1.5 pb-2 flex items-center justify-around">
         <button
           onClick={() => setActiveTab('library')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
