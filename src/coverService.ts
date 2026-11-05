@@ -50,43 +50,47 @@ export async function searchCoverOnline(artist: string, title: string): Promise<
     searchQueries.push(cArtist);
   }
 
-  // 1. Try iTunes Search API
+  // 1. Try iTunes Search API (RU store first for local artists, then global)
   for (const q of searchQueries) {
-    try {
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=3`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        const results = data.results || [];
-        for (const item of results) {
-          if (item.artworkUrl100) {
-            // Upgrade resolution to 600x600 for sharp Retina displays
-            const hiresUrl = item.artworkUrl100.replace(/100x100bb/, '600x600bb');
-            const blob = await fetchBlobWithTimeout(hiresUrl);
-            if (blob && blob.size > 1000) {
-              return blob;
+    for (const country of ['ru', 'us']) {
+      try {
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&country=${country}&entity=song&limit=3`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const results = data.results || [];
+          for (const item of results) {
+            if (item.artworkUrl100) {
+              // Upgrade resolution to 600x600 for sharp Retina displays
+              const hiresUrl = item.artworkUrl100.replace(/100x100bb/, '600x600bb');
+              const blob = await fetchBlobWithTimeout(hiresUrl);
+              if (blob && blob.size > 1000) {
+                return blob;
+              }
             }
           }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
 
   // 2. Try iTunes Album search as fallback
   if (cArtist && cArtist !== 'Неизвестный исполнитель') {
-    try {
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(cArtist)}&entity=album&limit=1`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        const first = data.results?.[0];
-        if (first?.artworkUrl100) {
-          const hiresUrl = first.artworkUrl100.replace(/100x100bb/, '600x600bb');
-          const blob = await fetchBlobWithTimeout(hiresUrl);
-          if (blob && blob.size > 1000) return blob;
+    for (const country of ['ru', 'us']) {
+      try {
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(cArtist)}&country=${country}&entity=album&limit=1`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const first = data.results?.[0];
+          if (first?.artworkUrl100) {
+            const hiresUrl = first.artworkUrl100.replace(/100x100bb/, '600x600bb');
+            const blob = await fetchBlobWithTimeout(hiresUrl);
+            if (blob && blob.size > 1000) return blob;
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
 
   return null;

@@ -293,3 +293,102 @@ export function pickArchiveMp3(meta: any, archId?: string): { url: string; durat
 
   return { url, durationSec };
 }
+
+export interface SearchAlbum {
+  id: string;
+  collectionId: number | string;
+  title: string;
+  artist: string;
+  coverUrl?: string;
+  trackCount: number;
+  releaseDate?: string;
+  primaryGenreName?: string;
+}
+
+export interface AlbumTrackItem {
+  id: string;
+  trackNumber: number;
+  title: string;
+  artist: string;
+  album: string;
+  coverUrl?: string;
+  duration: number;
+  searchQuery: string;
+}
+
+export async function searchAlbums(query: string): Promise<SearchAlbum[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  try {
+    const res = await fetch(`${WORKER_API_BASE}/api/albums?q=${encodeURIComponent(q)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.albums)) {
+        return data.albums;
+      }
+    }
+  } catch (err) {
+    console.warn('Worker albums error, falling back to iTunes:', err);
+  }
+
+  // Fallback: direct iTunes API call
+  try {
+    const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&country=ru&limit=25`;
+    const res = await fetch(itUrl);
+    if (res.ok) {
+      const data = await res.json();
+      return (data.results || []).map((alb: any) => ({
+        id: `alb-${alb.collectionId}`,
+        collectionId: alb.collectionId,
+        title: alb.collectionName,
+        artist: alb.artistName,
+        coverUrl: alb.artworkUrl100 ? alb.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
+        trackCount: alb.trackCount || 0,
+        releaseDate: alb.releaseDate ? alb.releaseDate.substring(0, 4) : '',
+        primaryGenreName: alb.primaryGenreName,
+      }));
+    }
+  } catch {}
+
+  return [];
+}
+
+export async function getAlbumTracks(collectionId: string | number): Promise<{ album: any; tracks: AlbumTrackItem[] }> {
+  try {
+    const res = await fetch(`${WORKER_API_BASE}/api/album-tracks?id=${collectionId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.tracks)) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Worker album-tracks error, fallback to iTunes:', err);
+  }
+
+  // Direct iTunes fallback
+  try {
+    const lookupUrl = `https://itunes.apple.com/lookup?id=${collectionId}&entity=song`;
+    const res = await fetch(lookupUrl);
+    if (res.ok) {
+      const data = await res.json();
+      const items = data.results || [];
+      const albumMeta = items[0] || {};
+      const rawTracks = items.slice(1);
+      const tracks: AlbumTrackItem[] = rawTracks.map((t: any, idx: number) => ({
+        id: `track-${t.trackId || idx}`,
+        trackNumber: t.trackNumber || idx + 1,
+        title: t.trackName,
+        artist: t.artistName,
+        album: albumMeta.collectionName || t.collectionName,
+        coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
+        duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 210,
+        searchQuery: `${t.artistName} ${t.trackName}`,
+      }));
+      return { album: albumMeta, tracks };
+    }
+  } catch {}
+
+  return { album: {}, tracks: [] };
+}
