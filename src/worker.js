@@ -185,7 +185,12 @@ export default {
 
       try {
         const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&country=ru&limit=25`;
-        const itRes = await fetch(itunesUrl);
+        const itRes = await fetch(itunesUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          },
+        });
         if (itRes.ok) {
           const itData = await itRes.json();
           const albums = (itData.results || []).map((alb) => ({
@@ -227,7 +232,12 @@ export default {
 
       try {
         const lookupUrl = `https://itunes.apple.com/lookup?id=${collectionId}&entity=song`;
-        const res = await fetch(lookupUrl);
+        const res = await fetch(lookupUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           const items = data.results || [];
