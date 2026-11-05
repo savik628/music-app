@@ -8,71 +8,66 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  html, body {
-    width: 100%;
-    height: 100%;
-    height: 100dvh;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
+  html {
     background-color: #000000;
     color: #ffffff;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    overscroll-behavior: none;
   }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", -apple-system-subheadline, "Helvetica Neue", Arial, sans-serif;
+    background-color: #000000;
+    color: #ffffff;
     display: flex;
     justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-size: 15px;
     line-height: 1.45;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 
   #root {
     width: 100%;
-    height: 100%;
+    min-height: 100vh;
     display: flex;
     justify-content: center;
-    overflow: hidden;
   }
 }
 
-/* App Container - Locked 100dvh App Shell */
+/* App Container - Exact VIV Container Architecture */
 .app-container {
   width: 100%;
   max-width: 480px;
-  height: 100%;
-  height: 100dvh;
+  min-height: 100vh;
   background-color: #000000;
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden;
 }
 
-/* Screen Content Area (with bottom padding accounting for dock) */
+/* Screen Content Area */
 .screen-content {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1;
+  padding: 14px 16px calc(140px + env(safe-area-inset-bottom, 0px)) 16px;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  padding: 14px 16px calc(130px + max(calc(env(safe-area-inset-bottom, 0px) - 12px), 6px)) 16px;
+  overflow-x: hidden;
   max-width: 100%;
   box-sizing: border-box;
 }
 
 /* App Header */
 .app-header {
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
   z-index: 20;
-  background-color: rgba(18, 18, 21, 0.92);
+  background-color: rgba(18, 18, 21, 0.94);
   backdrop-filter: blur(25px) saturate(180%);
   -webkit-backdrop-filter: blur(25px) saturate(180%);
   min-height: 54px;
@@ -104,33 +99,34 @@
 /* Mini Player wrapper */
 .mini-player-wrapper {
   pointer-events: auto;
-  padding: 0 10px 6px 10px;
+  padding: 0 10px 8px 10px;
   width: 100%;
   box-sizing: border-box;
 }
 
 /* Mini Player Floating Card - Apple Music Style */
 .mini-player-island {
-  background: rgba(26, 26, 30, 0.88);
+  background: rgba(26, 26, 30, 0.92);
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 0.5px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
 }
 
-/* Bottom Navigation Bar - Apple Music Proportions (no empty chin) */
+/* Bottom Navigation Bar - Flush to bottom edge */
 .bottom-nav {
   pointer-events: auto;
   width: 100%;
-  background-color: rgba(15, 15, 18, 0.88);
+  min-height: 56px;
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  background-color: rgba(15, 15, 18, 0.94);
   backdrop-filter: blur(30px) saturate(190%);
   -webkit-backdrop-filter: blur(30px) saturate(190%);
   border-top: 0.5px solid rgba(255, 255, 255, 0.12);
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding-top: 5px;
-  padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 12px), 6px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   box-sizing: border-box;
 }
 
@@ -147,7 +143,7 @@
   cursor: pointer;
   gap: 2.5px;
   flex: 1;
-  padding: 3px 2px;
+  padding: 4px 2px;
   transition: color 0.15s, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 0;
 }
