@@ -4,34 +4,42 @@ import type { Track } from './types';
 export async function parseAudioFile(file: File): Promise<Track> {
   let title = file.name.replace(/\.[^/.]+$/, '');
   let artist = 'Неизвестный исполнитель';
-  let album = 'Неизвестный альбом';
+  let album = 'Медиатека';
   let duration = 0;
   let year: number | undefined;
   let coverBlob: Blob | undefined;
 
-  try {
-    const metadata = await mm.parseBlob(file);
-    if (metadata.common.title) title = metadata.common.title;
-    if (metadata.common.artist) artist = metadata.common.artist;
-    if (metadata.common.album) album = metadata.common.album;
-    if (metadata.common.year) year = metadata.common.year;
-    if (metadata.format.duration) duration = Math.round(metadata.format.duration);
-
-    if (metadata.common.picture && metadata.common.picture.length > 0) {
-      const pic = metadata.common.picture[0];
-      coverBlob = new Blob([pic.data], { type: pic.format });
-    }
-  } catch (err) {
-    console.warn('ID3 metadata parsing failed, fallback to file name:', err);
+  // Try parsing title & artist from filename if in "Артист - Трек" format
+  if (title.includes(' - ')) {
+    const parts = title.split(' - ');
+    artist = parts[0].trim();
+    title = parts.slice(1).join(' - ').trim();
+  } else if (title.includes(' – ')) {
+    const parts = title.split(' – ');
+    artist = parts[0].trim();
+    title = parts.slice(1).join(' – ').trim();
   }
 
-  // Fallback for duration if not parsed
-  if (!duration) {
-    try {
-      duration = await getAudioDuration(file);
-    } catch {
-      duration = 0;
+  // Fast timeout promise so huge files or corrupted tags don't hang iOS Safari
+  try {
+    const parsePromise = mm.parseBlob(file);
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const metadata: any = await Promise.race([parsePromise, timeoutPromise]);
+
+    if (metadata && metadata.common) {
+      if (metadata.common.title) title = metadata.common.title;
+      if (metadata.common.artist) artist = metadata.common.artist;
+      if (metadata.common.album) album = metadata.common.album;
+      if (metadata.common.year) year = metadata.common.year;
+      if (metadata.format?.duration) duration = Math.round(metadata.format.duration);
+
+      if (metadata.common.picture && metadata.common.picture.length > 0) {
+        const pic = metadata.common.picture[0];
+        coverBlob = new Blob([pic.data], { type: pic.format || 'image/jpeg' });
+      }
     }
+  } catch (err) {
+    console.warn('ID3 parsing skipped/failed:', err);
   }
 
   const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -48,21 +56,4 @@ export async function parseAudioFile(file: File): Promise<Track> {
     addedAt: Date.now(),
     isFavorite: false,
   };
-}
-
-function getAudioDuration(blob: Blob): Promise<number> {
-  return new Promise((resolve) => {
-    const audio = new Audio();
-    const url = URL.createObjectURL(blob);
-    audio.src = url;
-    audio.addEventListener('loadedmetadata', () => {
-      const dur = Math.round(audio.duration) || 0;
-      URL.revokeObjectURL(url);
-      resolve(dur);
-    });
-    audio.addEventListener('error', () => {
-      URL.revokeObjectURL(url);
-      resolve(0);
-    });
-  });
 }

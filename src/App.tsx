@@ -70,26 +70,40 @@ export function App() {
     return () => unsubscribe();
   }, [tracks, currentTrack, isShuffle, isRepeat]);
 
-  // Handle local files import
+  // Handle local files import (iOS Safari friendly)
   const handleFilesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setImporting(true);
+    let addedCount = 0;
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (file.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|flac|ogg)$/i.test(file.name)) {
+      // On iOS Safari file.type is sometimes empty for downloaded files, so accept audio extension or audio type
+      const isAudio =
+        file.type.startsWith('audio/') ||
+        !file.type ||
+        /\.(mp3|m4a|aac|wav|flac|ogg|mp4|aiff)$/i.test(file.name);
+
+      if (isAudio) {
         try {
           const parsed = await parseAudioFile(file);
           await saveTrack(parsed);
+          addedCount++;
         } catch (err) {
           console.error('Error importing file:', file.name, err);
         }
       }
     }
+
     await refreshLibrary();
     setImporting(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (addedCount > 0) {
+      setActiveTab('library');
+    }
   };
 
   // Playback handlers
@@ -179,7 +193,7 @@ export function App() {
           <input
             type="file"
             multiple
-            accept="audio/*"
+            accept="audio/*,.mp3,.m4a,.aac,.wav,.flac"
             ref={fileInputRef}
             onChange={handleFilesSelected}
             className="hidden"
