@@ -19,7 +19,7 @@ interface AlbumsTabProps {
   tracks: Track[];
   currentTrack: Track | null;
   isPlaying: boolean;
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Track, queue?: Track[]) => void;
   onAddToAlbumRequest?: (track: Track) => void;
 }
 
@@ -190,7 +190,7 @@ export const AlbumsTab: React.FC<AlbumsTabProps> = ({
 
             {activeAlbum.tracks.length > 0 && (
               <button
-                onClick={() => onPlayTrack(activeAlbum.tracks[0])}
+                onClick={() => onPlayTrack(activeAlbum.tracks[0], activeAlbum.tracks)}
                 className="mt-3 flex items-center gap-2 px-4 py-2 bg-white text-black text-xs font-bold rounded-full active:scale-95 transition shadow-lg"
               >
                 <Play className="w-3.5 h-3.5 fill-black" />
@@ -215,7 +215,7 @@ export const AlbumsTab: React.FC<AlbumsTabProps> = ({
               return (
                 <div
                   key={track.id}
-                  onClick={() => onPlayTrack(track)}
+                  onClick={() => onPlayTrack(track, activeAlbum.tracks)}
                   className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition ${
                     isSelected
                       ? 'bg-neutral-800/90 text-white border border-neutral-700/80 shadow'

@@ -35,9 +35,66 @@ export function getDB(): Promise<IDBPDatabase<MusicDB>> {
   return dbPromise;
 }
 
+// Request persistent storage on iOS Safari so OS never wipes IndexedDB
+export async function requestPersistentStorage(): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+    try {
+      const isPersisted = await navigator.storage.persist();
+      console.log('IndexedDB persistent storage status:', isPersisted);
+      return isPersisted;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+// Calculate used storage bytes and available quota
+export async function getStorageEstimate(): Promise<{ usedBytes: number; quotaBytes: number; isPersisted: boolean }> {
+  let usedBytes = 0;
+  let quotaBytes = 0;
+  let isPersisted = false;
+
+  if (typeof navigator !== 'undefined' && navigator.storage) {
+    if (navigator.storage.estimate) {
+      try {
+        const est = await navigator.storage.estimate();
+        usedBytes = est.usage || 0;
+        quotaBytes = est.quota || 0;
+      } catch {}
+    }
+    if (navigator.storage.persisted) {
+      try {
+        isPersisted = await navigator.storage.persisted();
+      } catch {}
+    }
+  }
+
+  return { usedBytes, quotaBytes, isPersisted };
+}
+
 export async function saveTrack(track: Track): Promise<void> {
   const db = await getDB();
   await db.put('tracks', track);
+}
+
+export async function updateTrackMetadata(
+  id: string,
+  updates: { title: string; artist: string; album: string; coverBlob?: Blob }
+): Promise<Track | null> {
+  const db = await getDB();
+  const track = await db.get('tracks', id);
+  if (!track) return null;
+
+  track.title = updates.title.trim() || track.title;
+  track.artist = updates.artist.trim() || track.artist;
+  track.album = updates.album.trim() || track.album;
+  if (updates.coverBlob) {
+    track.coverBlob = updates.coverBlob;
+  }
+
+  await db.put('tracks', track);
+  return track;
 }
 
 export async function getAllTracks(): Promise<Track[]> {

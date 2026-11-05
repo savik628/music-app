@@ -126,6 +126,8 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     setPreviewTrackId(null);
   };
 
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, string>>({});
+
   const handleDownload = async (item: SearchTrack) => {
     if (item.isFullVersion !== true) {
       alert('Это 30-секундное превью iTunes — в медиатеку сохраняются только полные треки.');
@@ -133,6 +135,8 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     }
 
     setDownloadingId(item.id);
+    setDownloadProgress((prev) => ({ ...prev, [item.id]: 'Соединение...' }));
+
     try {
       let downloadUrl = item.audioUrl;
       let duration = item.duration;
@@ -151,6 +155,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
       if (!downloadUrl) throw new Error('Нет ссылки для скачивания');
 
+      setDownloadProgress((prev) => ({ ...prev, [item.id]: 'Скачивание...' }));
       const res = await fetch(downloadUrl);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const contentType = res.headers.get('content-type') || '';
@@ -158,7 +163,35 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         throw new Error('Ожидался аудиофайл, но получен текст/HTML');
       }
 
-      const audioBlob = await res.blob();
+      const reader = res.body?.getReader();
+      let audioBlob: Blob;
+
+      if (reader) {
+        const contentLength = +(res.headers.get('Content-Length') || 0);
+        let receivedLength = 0;
+        const chunks: Uint8Array[] = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          receivedLength += value.length;
+
+          const mb = (receivedLength / (1024 * 1024)).toFixed(1);
+          if (contentLength > 0) {
+            const totalMb = (contentLength / (1024 * 1024)).toFixed(1);
+            setDownloadProgress((prev) => ({ ...prev, [item.id]: `${mb}/${totalMb} МБ` }));
+          } else {
+            setDownloadProgress((prev) => ({ ...prev, [item.id]: `${mb} МБ` }));
+          }
+        }
+
+        audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
+      } else {
+        audioBlob = await res.blob();
+      }
+
+      setDownloadProgress((prev) => ({ ...prev, [item.id]: 'Обложка...' }));
 
       let coverBlob: Blob | undefined;
       if (item.coverUrl) {
@@ -413,7 +446,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                     <button
                       onClick={() => handleDownload(res)}
                       disabled={isDownloading || isDownloaded || res.isFullVersion !== true}
-                      className={`p-2.5 rounded-xl flex-shrink-0 active:scale-95 transition ${
+                      className={`px-2.5 py-2 rounded-xl flex-shrink-0 active:scale-95 transition flex items-center gap-1.5 ${
                         res.isFullVersion !== true
                           ? 'opacity-40 cursor-not-allowed bg-white text-black'
                           : isDownloaded
@@ -423,7 +456,12 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                       title={res.isFullVersion ? 'Скачать полный трек' : 'Скачать демо-превью в офлайн'}
                     >
                       {isDownloading ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-black" />
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                          <span className="text-[10px] font-mono font-bold text-black">
+                            {downloadProgress[res.id] || '...'}
+                          </span>
+                        </>
                       ) : isDownloaded ? (
                         <Check className="w-4 h-4 text-white" />
                       ) : (
