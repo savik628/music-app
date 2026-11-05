@@ -208,7 +208,7 @@ export function App() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-black text-white overflow-hidden relative">
+    <div className="app-container">
       {/* Toast Notification */}
       {toastMsg && (
         <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-white text-black font-semibold text-xs px-4 py-2 rounded-full shadow-2xl animate-in fade-in zoom-in-95 duration-150">
@@ -216,16 +216,16 @@ export function App() {
         </div>
       )}
 
-      {/* Top Header - Apple Music Style */}
-      <header className="apple-header px-5 pt-safe pb-2.5 flex items-center justify-between flex-shrink-0 z-20">
+      {/* Top Header (VIV Header architecture) */}
+      <header className="app-header">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white leading-none">
+          <h1 className="text-xl font-bold tracking-tight text-white leading-none">
             {activeTab === 'library' && 'Медиатека'}
             {activeTab === 'albums' && 'Альбомы'}
             {activeTab === 'artists' && 'Артисты'}
             {activeTab === 'search' && 'Поиск'}
           </h1>
-          <p className="text-[11px] text-neutral-400 font-medium mt-1">Офлайн плеер</p>
+          <p className="text-[11px] text-neutral-400 font-medium mt-0.5">Офлайн плеер</p>
         </div>
 
         {/* Add music button */}
@@ -253,8 +253,8 @@ export function App() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
+      {/* Main Content Area (VIV Screen Content) */}
+      <main className="screen-content">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-neutral-500">
             <Loader2 className="w-6 h-6 animate-spin text-white" />
@@ -415,9 +415,9 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Mini Player - Docked seamlessly right above Tab Bar */}
+      {/* Floating Mini Player (anchored above bottom-nav like VIV rest-timer) */}
       {currentTrack && !isFullPlayerOpen && (
-        <div className="flex-shrink-0 px-3 pb-1.5 z-30 animate-in slide-in-from-bottom-2 duration-150">
+        <div className="mini-player-bar animate-in slide-in-from-bottom-2 duration-150">
           <MiniPlayer
             track={currentTrack}
             isPlaying={isPlaying}
@@ -427,46 +427,46 @@ export function App() {
         </div>
       )}
 
-      {/* Clean Solid iOS Tab Bar - Flush, compact, zero dead space */}
-      <nav className="apple-tab-bar flex-shrink-0 w-full z-20 px-3 pt-1.5 pb-2 flex items-center justify-around">
+      {/* Bottom Navigation Bar (exact VIV layout) */}
+      <nav className="bottom-nav">
         <button
           onClick={() => setActiveTab('library')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'library' ? 'text-white font-bold' : 'text-neutral-500'
-          }`}
+          className={`nav-item ${activeTab === 'library' ? 'active' : ''}`}
         >
-          <Library className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Медиатека</span>
+          <div className="nav-icon">
+            <Library className="w-5 h-5" />
+          </div>
+          <span>Медиатека</span>
         </button>
 
         <button
           onClick={() => setActiveTab('albums')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'albums' ? 'text-white font-bold' : 'text-neutral-500'
-          }`}
+          className={`nav-item ${activeTab === 'albums' ? 'active' : ''}`}
         >
-          <Disc3 className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Альбомы</span>
+          <div className="nav-icon">
+            <Disc3 className="w-5 h-5" />
+          </div>
+          <span>Альбомы</span>
         </button>
 
         <button
           onClick={() => setActiveTab('artists')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'artists' ? 'text-white font-bold' : 'text-neutral-500'
-          }`}
+          className={`nav-item ${activeTab === 'artists' ? 'active' : ''}`}
         >
-          <User className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Артисты</span>
+          <div className="nav-icon">
+            <User className="w-5 h-5" />
+          </div>
+          <span>Артисты</span>
         </button>
 
         <button
           onClick={() => setActiveTab('search')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
-            activeTab === 'search' ? 'text-white font-bold' : 'text-neutral-500'
-          }`}
+          className={`nav-item ${activeTab === 'search' ? 'active' : ''}`}
         >
-          <Search className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Поиск</span>
+          <div className="nav-icon">
+            <Search className="w-5 h-5" />
+          </div>
+          <span>Поиск</span>
         </button>
       </nav>
 
