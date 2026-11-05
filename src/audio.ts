@@ -1,13 +1,10 @@
 import type { Track } from './types';
 
-// Minimal 1-second silent WAV audio data URL to keep iOS Audio Session active in background
-const SILENT_WAV_DATA_URL =
-  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-
 class AudioEngine {
   public readonly canSetVolume: boolean;
   private audio: HTMLAudioElement;
-  private silentAudio: HTMLAudioElement | null = null;
+  private audioCtx: AudioContext | null = null;
+  private mediaSourceNode: MediaElementAudioSourceNode | null = null;
   private currentTrack: Track | null = null;
   private nextTrack: Track | null = null;
   private currentBlobUrl: string | null = null;
@@ -17,7 +14,7 @@ class AudioEngine {
   private softwareVolume: number = 1;
   private activePreviewAudio: HTMLAudioElement | null = null;
   private previewStopListeners: Set<() => void> = new Set();
-  private isKeepAliveInitialized: boolean = false;
+  private isAudioCtxConnected: boolean = false;
 
   constructor() {
     const testAudio = new Audio();
@@ -28,32 +25,85 @@ class AudioEngine {
       this.canSetVolume = false;
     }
 
-    this.audio = new Audio();
+    // Create audio element and mount to DOM so iOS WebKit never considers it unmounted background trash
+    this.audio = document.createElement('audio');
+    this.audio.id = 'app-background-audio';
     this.audio.preload = 'auto';
+    this.audio.setAttribute('playsinline', 'true');
+    this.audio.setAttribute('webkit-playsinline', 'true');
+    this.audio.style.display = 'none';
     (this.audio as any).playsInline = true;
 
+    this.mountAudioToDom();
     this.setupListeners();
     this.setupMediaSession();
+    this.setupBackgroundKeepAlive();
   }
 
-  // Initializes silent background keep-alive loop on first user tap
-  private initKeepAlive() {
-    if (this.isKeepAliveInitialized || typeof window === 'undefined') return;
-    this.isKeepAliveInitialized = true;
-
-    try {
-      this.silentAudio = new Audio(SILENT_WAV_DATA_URL);
-      this.silentAudio.loop = true;
-      (this.silentAudio as any).playsInline = true;
-      this.silentAudio.volume = 0.001;
-      this.silentAudio.play().catch(() => {});
-    } catch (err) {
-      console.warn('Keep-alive silent audio could not be initialized:', err);
+  private mountAudioToDom() {
+    if (typeof document !== 'undefined') {
+      if (document.body) {
+        document.body.appendChild(this.audio);
+      } else {
+        window.addEventListener('DOMContentLoaded', () => {
+          document.body.appendChild(this.audio);
+        });
+      }
     }
+  }
+
+  // Connects HTMLAudioElement to Web Audio API AudioContext for iOS system audio session activation
+  private ensureAudioContextRunning() {
+    try {
+      const AudioCtxClass =
+        window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) return;
+
+      if (!this.audioCtx) {
+        this.audioCtx = new AudioCtxClass();
+      }
+
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+
+      if (!this.isAudioCtxConnected && this.audioCtx) {
+        try {
+          this.mediaSourceNode = this.audioCtx.createMediaElementSource(this.audio);
+          this.mediaSourceNode.connect(this.audioCtx.destination);
+          this.isAudioCtxConnected = true;
+        } catch (e) {
+          // If already connected, ignore
+          this.isAudioCtxConnected = true;
+        }
+      }
+    } catch (err) {
+      console.warn('Web Audio AudioContext initialization:', err);
+    }
+  }
+
+  // Prevents iOS from freezing the audio pipeline when switching to home screen or locking device
+  private setupBackgroundKeepAlive() {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibilityOrPageHide = () => {
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      if (!this.audio.paused) {
+        this.updateMediaSessionPlaybackState('playing');
+        this.updatePositionState();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrPageHide);
+    window.addEventListener('pagehide', handleVisibilityOrPageHide);
+    window.addEventListener('freeze' as any, handleVisibilityOrPageHide);
   }
 
   private setupListeners() {
     this.audio.addEventListener('play', () => {
+      this.ensureAudioContextRunning();
       this.updateMediaSessionPlaybackState('playing');
       this.updatePositionState();
       this.notify();
@@ -71,7 +121,7 @@ class AudioEngine {
     });
 
     this.audio.addEventListener('ended', () => {
-      // Synchronously switch to next track if preloaded to prevent iOS session teardown
+      // Synchronous instant transition to next track to prevent iOS background session expiration
       if (this.nextTrack && this.nextPreloadBlobUrl) {
         const next = this.nextTrack;
         const nextUrl = this.nextPreloadBlobUrl;
@@ -88,7 +138,7 @@ class AudioEngine {
         this.audio.src = nextUrl;
         this.updateMediaSessionMetadata(next);
         this.audio.play().catch((err) => {
-          console.warn('Background auto-play error, triggering onTrackEnded fallback:', err);
+          console.warn('Background auto-play error, invoking onTrackEnded fallback:', err);
           this.onTrackEnded();
         });
         this.notify();
@@ -142,7 +192,7 @@ class AudioEngine {
     this.activePreviewAudio = audio;
   }
 
-  // Prepares next track in memory for gapless / instant background playback
+  // Pre-allocates next track blob URL for gapless & zero-delay background switching
   public setNextTrack(track: Track | null) {
     if (this.nextPreloadBlobUrl) {
       URL.revokeObjectURL(this.nextPreloadBlobUrl);
@@ -158,7 +208,7 @@ class AudioEngine {
   }
 
   public async playTrack(track: Track) {
-    this.initKeepAlive();
+    this.ensureAudioContextRunning();
     this.stopPreview();
 
     if (this.currentBlobUrl) {
@@ -181,7 +231,7 @@ class AudioEngine {
   }
 
   public async togglePlay() {
-    this.initKeepAlive();
+    this.ensureAudioContextRunning();
     if (!this.currentTrack) return;
 
     if (this.audio.paused) {
@@ -247,7 +297,7 @@ class AudioEngine {
     if (!('mediaSession' in navigator)) return;
 
     navigator.mediaSession.setActionHandler('play', () => {
-      this.initKeepAlive();
+      this.ensureAudioContextRunning();
       if (this.currentTrack) {
         this.stopPreview();
         this.audio.play().catch(() => {});
