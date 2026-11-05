@@ -26,7 +26,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
         setProgress(Math.min(100, Math.max(0, (state.currentTime / state.duration) * 100)));
       }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+    };
   }, [track]);
 
   return (

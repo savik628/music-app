@@ -5,12 +5,9 @@ import {
   Loader2,
   Play,
   Pause,
-  ExternalLink,
   Check,
   Flame,
   X,
-  Globe,
-  Sparkles,
   Disc3,
   Music2,
   ChevronLeft,
@@ -28,7 +25,6 @@ import {
   type SearchTrack,
   type SearchAlbum,
   type AlbumTrackItem,
-  WORKER_API_BASE,
 } from '../searchService';
 import { audioEngine } from '../audio';
 import { searchCoverOnline } from '../coverService';
@@ -54,8 +50,6 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
   const [isSearched, setIsSearched] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<Record<string, string>>({});
-  const [batchDownloading, setBatchDownloading] = useState(false);
-  const [batchProgress, setBatchProgress] = useState('');
 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -79,7 +73,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     };
   }, []);
 
-  const togglePreview = async (item: SearchTrack) => {
+  const togglePreview = async (item: SearchTrack | AlbumTrackItem) => {
     if (previewTrackId === item.id) {
       audioEngine.stopPreview();
       setPreviewTrackId(null);
@@ -92,7 +86,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     if (item.id.startsWith('arch-')) {
       try {
         const archId = item.id.replace('arch-', '');
-        const metaRes = await fetch(`https://archive.org/metadata/${archId}`);
+        const metaRes = await fetch(`https://archive.org/metadata/${archId}`, {
+          signal: AbortSignal.timeout(10000),
+        });
         const meta = await metaRes.json();
         const picked = pickArchiveMp3(meta, archId);
         if (picked?.url) {
@@ -189,7 +185,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
       if (item.id.startsWith('arch-')) {
         const archId = item.id.replace('arch-', '');
-        const metaRes = await fetch(`https://archive.org/metadata/${archId}`);
+        const metaRes = await fetch(`https://archive.org/metadata/${archId}`, {
+          signal: AbortSignal.timeout(10000),
+        });
         const meta = await metaRes.json();
         const picked = pickArchiveMp3(meta, archId);
         if (!picked?.url) throw new Error('MP3 не найден');
@@ -202,7 +200,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       if (!downloadUrl) throw new Error('Нет ссылки для скачивания');
 
       setDownloadProgress((prev) => ({ ...prev, [item.id]: 'Скачивание...' }));
-      const res = await fetch(downloadUrl);
+      const res = await fetch(downloadUrl, {
+        signal: AbortSignal.timeout(60000),
+      });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
 
       const reader = res.body?.getReader();
@@ -228,7 +228,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
           }
         }
 
-        audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
+        audioBlob = new Blob(chunks as BlobPart[], { type: res.headers.get("content-type") || "audio/mpeg" });
       } else {
         audioBlob = await res.blob();
       }
@@ -238,7 +238,9 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       let coverBlob: Blob | undefined;
       if (item.coverUrl) {
         try {
-          const cRes = await fetch(item.coverUrl);
+          const cRes = await fetch(item.coverUrl, {
+            signal: AbortSignal.timeout(10000),
+          });
           if (cRes.ok) coverBlob = await cRes.blob();
         } catch {}
       }
@@ -267,158 +269,13 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       setDownloadedIds((prev) => new Set(prev).add(item.id));
       onTrackDownloaded();
     } catch {
-      alert('Не удалось скачать файл напрямую. Откройте один из сайтов ниже для скачивания.');
+      alert('Не удалось скачать файл.');
     } finally {
       setDownloadingId(null);
     }
-  };
-
-  // Download a track from an album
-  const handleDownloadAlbumTrack = async (track: AlbumTrackItem, album: SearchAlbum) => {
-    setDownloadingId(track.id);
-    setDownloadProgress((prev) => ({ ...prev, [track.id]: 'Поиск MP3...' }));
-
-    try {
-      // Find full MP3 stream via worker search
-      const searchQuery = track.searchQuery || `${track.artist} ${track.title}`;
-      const searchRes = await fetch(`${WORKER_API_BASE}/api/search?q=${encodeURIComponent(searchQuery)}`);
-      if (!searchRes.ok) throw new Error('Поиск не удался');
-      const searchData = await searchRes.json();
-      const firstResult = (searchData.results || [])[0];
-
-      if (!firstResult || !firstResult.audioUrl) {
-        throw new Error('Полный трек не найден');
-      }
-
-      setDownloadProgress((prev) => ({ ...prev, [track.id]: 'Загрузка...' }));
-      const audioRes = await fetch(firstResult.audioUrl);
-      if (!audioRes.ok) throw new Error('Ошибка загрузки аудио');
-
-      const reader = audioRes.body?.getReader();
-      let audioBlob: Blob;
-
-      if (reader) {
-        const contentLength = +(audioRes.headers.get('Content-Length') || 0);
-        let receivedLength = 0;
-        const chunks: Uint8Array[] = [];
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          receivedLength += value.length;
-
-          const mb = (receivedLength / (1024 * 1024)).toFixed(1);
-          if (contentLength > 0) {
-            const totalMb = (contentLength / (1024 * 1024)).toFixed(1);
-            setDownloadProgress((prev) => ({ ...prev, [track.id]: `${mb}/${totalMb} МБ` }));
-          } else {
-            setDownloadProgress((prev) => ({ ...prev, [track.id]: `${mb} МБ` }));
-          }
-        }
-
-        audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
-      } else {
-        audioBlob = await audioRes.blob();
-      }
-
-      // Fetch official high-res album cover
-      let coverBlob: Blob | undefined;
-      const coverUrl = album.coverUrl || track.coverUrl;
-      if (coverUrl) {
-        try {
-          const cRes = await fetch(coverUrl);
-          if (cRes.ok) coverBlob = await cRes.blob();
-        } catch {}
-      }
-
-      const newTrack: Track = {
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-        title: track.title,
-        artist: track.artist,
-        album: album.title,
-        duration: firstResult.duration || track.duration,
-        audioBlob,
-        coverBlob,
-        addedAt: Date.now(),
-        isFavorite: false,
-      };
-
-      await saveTrack(newTrack);
-      setDownloadedIds((prev) => new Set(prev).add(track.id));
-      onTrackDownloaded();
-    } catch (err: any) {
-      alert(`Не удалось скачать "${track.title}": ${err.message || 'Ошибка сети'}`);
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  // Download entire album in batch
-  const handleDownloadEntireAlbum = async (album: SearchAlbum) => {
-    if (albumTracks.length === 0 || batchDownloading) return;
-    setBatchDownloading(true);
-
-    let successCount = 0;
-    for (let i = 0; i < albumTracks.length; i++) {
-      const t = albumTracks[i];
-      if (downloadedIds.has(t.id)) {
-        successCount++;
-        continue;
-      }
-
-      setBatchProgress(`Скачивание ${i + 1}/${albumTracks.length}: ${t.title}`);
-      try {
-        await handleDownloadAlbumTrack(t, album);
-        successCount++;
-      } catch (e) {
-        console.warn(`Failed downloading ${t.title}:`, e);
-      }
-    }
-
-    setBatchDownloading(false);
-    setBatchProgress('');
-    alert(`Альбом загружен: ${successCount} из ${albumTracks.length} треков сохранено!`);
   };
 
   const displayList = isSearched ? searchResults : popularTracks;
-  const currentQueryTerm = query.trim();
-
-  // Top Portals for downloading full MP3 files
-  const downloadSites = [
-    {
-      name: 'Sefon.pro',
-      badge: 'Прямой MP3 файл',
-      color: 'from-purple-900/30 to-purple-950/40 border-purple-800/40 hover:border-purple-600',
-      url: currentQueryTerm
-        ? `https://sefon.pro/search/?q=${encodeURIComponent(currentQueryTerm)}`
-        : 'https://sefon.pro/mp3/',
-    },
-    {
-      name: 'Hitmo Top',
-      badge: 'Все хиты и новинки',
-      color: 'from-blue-900/30 to-blue-950/40 border-blue-800/40 hover:border-blue-600',
-      url: currentQueryTerm
-        ? `https://rus.hitmotop.com/search?q=${encodeURIComponent(currentQueryTerm)}`
-        : 'https://rus.hitmotop.com/',
-    },
-    {
-      name: 'SoundCloud',
-      badge: 'Треки и ремиксы',
-      color: 'from-[#ff5500]/20 to-[#ff3300]/10 border-[#ff5500]/40 hover:border-[#ff5500]',
-      url: currentQueryTerm
-        ? `https://soundcloud.com/search?q=${encodeURIComponent(currentQueryTerm)}`
-        : 'https://soundcloud.com/',
-    },
-    {
-      name: 'Muzofond',
-      badge: 'Студийные треки 320k',
-      color: 'from-emerald-900/30 to-emerald-950/40 border-emerald-800/40 hover:border-emerald-600',
-      url: currentQueryTerm
-        ? `https://muzofond.fm/search/${encodeURIComponent(currentQueryTerm)}`
-        : 'https://muzofond.fm/',
-    },
-  ];
 
   return (
     <div className="space-y-3 pb-8">
@@ -556,25 +413,6 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
             </div>
           </div>
 
-          {/* Download Entire Album Action */}
-          <button
-            onClick={() => handleDownloadEntireAlbum(selectedAlbum)}
-            disabled={batchDownloading || albumLoading || albumTracks.length === 0}
-            className="w-full py-2.5 bg-white text-black active:scale-[0.98] rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
-          >
-            {batchDownloading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-black" />
-                <span>{batchProgress || 'Загрузка альбома...'}</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4 text-black" />
-                <span>Скачать весь альбом в память</span>
-              </>
-            )}
-          </button>
-
           {/* Album Tracks List */}
           {albumLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-neutral-500 space-y-2">
@@ -584,16 +422,18 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
           ) : (
             <div className="space-y-1.5">
               {albumTracks.map((t, idx) => {
-                const isDownloaded = downloadedIds.has(t.id);
-                const isDownloading = downloadingId === t.id;
-
+                const isPreviewing = previewTrackId === t.id;
                 const min = Math.floor(t.duration / 60);
                 const sec = Math.floor(t.duration % 60).toString().padStart(2, '0');
 
                 return (
                   <div
                     key={t.id}
-                    className="p-2.5 rounded-2xl bg-neutral-900/60 border border-neutral-800/60 hover:bg-neutral-900 transition flex items-center justify-between"
+                    className={`p-2.5 rounded-2xl border transition flex items-center justify-between ${
+                      isPreviewing
+                        ? 'bg-neutral-800/90 border-neutral-600 shadow-md'
+                        : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900'
+                    }`}
                   >
                     <div className="flex items-center gap-3 overflow-hidden mr-2">
                       <span className="w-5 text-center text-xs font-mono text-neutral-500 flex-shrink-0">
@@ -609,28 +449,23 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleDownloadAlbumTrack(t, selectedAlbum)}
-                      disabled={isDownloading || isDownloaded}
-                      className={`px-3 py-1.5 rounded-xl flex-shrink-0 active:scale-95 transition flex items-center gap-1.5 ${
-                        isDownloaded
-                          ? 'bg-neutral-800 text-white cursor-default'
-                          : 'bg-white text-black hover:bg-neutral-200'
-                      }`}
-                    >
-                      {isDownloading ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
-                          <span className="text-[10px] font-mono font-bold text-black">
-                            {downloadProgress[t.id] || '...'}
-                          </span>
-                        </>
-                      ) : isDownloaded ? (
-                        <Check className="w-3.5 h-3.5 text-white" />
-                      ) : (
-                        <Download className="w-3.5 h-3.5 text-black" />
-                      )}
-                    </button>
+                    {t.audioUrl && (
+                      <button
+                        onClick={() => togglePreview(t)}
+                        className={`p-2 rounded-xl flex-shrink-0 active:scale-95 transition ${
+                          isPreviewing
+                            ? 'bg-white text-black'
+                            : 'bg-neutral-800 text-neutral-300 hover:text-white'
+                        }`}
+                        title="Слушать превью"
+                      >
+                        {isPreviewing ? (
+                          <Pause className="w-4 h-4 fill-current" />
+                        ) : (
+                          <Play className="w-4 h-4 fill-current translate-x-0.5" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -721,10 +556,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
           {/* Empty Search Result */}
           {isSearched && !loading && searchResults.length === 0 && (
             <div className="text-center py-8 px-4 bg-neutral-900/40 rounded-3xl border border-neutral-800/80 space-y-2">
-              <p className="text-sm font-bold text-white">В открытом каталоге трек не найден</p>
-              <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
-                Скачайте полную песню в MP3 на одном из сайтов ниже, затем нажмите кнопку «+ Добавить музыку» — трек навсегда сохранится в плеер офлайн!
-              </p>
+              <p className="text-sm font-bold text-white">Ничего не нашлось. Добавьте свои файлы кнопкой «+ Добавить музыку».</p>
             </div>
           )}
 
@@ -735,8 +567,6 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                 const isDownloaded = downloadedIds.has(res.id);
                 const isDownloading = downloadingId === res.id;
                 const isPreviewing = previewTrackId === res.id;
-
-                const fullMp3SearchUrl = `https://sefon.pro/search/?q=${encodeURIComponent(`${res.artist} ${res.title}`.trim())}`;
 
                 return (
                   <div
@@ -800,46 +630,33 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                         </div>
                       </div>
 
-                      {/* Actions: Download button & Full MP3 External Link */}
+                      {/* Actions: Download button (only for full tracks) */}
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {!res.isFullVersion && (
-                          <a
-                            href={fullMp3SearchUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white text-[11px] font-bold rounded-xl border border-neutral-700/80 transition flex items-center gap-1"
-                            title="Скачать полную песню целиком"
+                        {res.isFullVersion && (
+                          <button
+                            onClick={() => handleDownload(res)}
+                            disabled={isDownloading || isDownloaded}
+                            className={`px-2.5 py-2 rounded-xl flex-shrink-0 active:scale-95 transition flex items-center gap-1.5 ${
+                              isDownloaded
+                                ? 'bg-neutral-800 text-white cursor-default'
+                                : 'bg-white text-black hover:bg-neutral-200 shadow-sm'
+                            }`}
+                            title="Скачать полный трек в офлайн"
                           >
-                            <span>Полный MP3</span>
-                            <ExternalLink className="w-3 h-3 text-neutral-400" />
-                          </a>
+                            {isDownloading ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                                <span className="text-[10px] font-mono font-bold text-black">
+                                  {downloadProgress[res.id] || '...'}
+                                </span>
+                              </>
+                            ) : isDownloaded ? (
+                              <Check className="w-4 h-4 text-white" />
+                            ) : (
+                              <Download className="w-4 h-4 text-black" />
+                            )}
+                          </button>
                         )}
-
-                        <button
-                          onClick={() => handleDownload(res)}
-                          disabled={isDownloading || isDownloaded || res.isFullVersion !== true}
-                          className={`px-2.5 py-2 rounded-xl flex-shrink-0 active:scale-95 transition flex items-center gap-1.5 ${
-                            res.isFullVersion !== true
-                              ? 'opacity-40 cursor-not-allowed bg-white text-black'
-                              : isDownloaded
-                              ? 'bg-neutral-800 text-white cursor-default'
-                              : 'bg-white text-black hover:bg-neutral-200 shadow-sm'
-                          }`}
-                          title={res.isFullVersion ? 'Скачать полный трек в офлайн' : 'Скачать демо-превью в офлайн'}
-                        >
-                          {isDownloading ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
-                              <span className="text-[10px] font-mono font-bold text-black">
-                                {downloadProgress[res.id] || '...'}
-                              </span>
-                            </>
-                          ) : isDownloaded ? (
-                            <Check className="w-4 h-4 text-white" />
-                          ) : (
-                            <Download className="w-4 h-4 text-black" />
-                          )}
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -849,50 +666,6 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
           )}
         </div>
       )}
-
-      {/* Download Portals: Where to download full MP3 songs */}
-      <div className="pt-3 space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-            <Globe className="w-3.5 h-3.5 text-neutral-400" />
-            Прямые порталы с MP3 320 kbps:
-          </span>
-          <span className="text-[10px] text-neutral-500 font-medium">
-            открывается в браузере
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          {downloadSites.map((site) => (
-            <a
-              key={site.name}
-              href={site.url}
-              target="_blank"
-              rel="noreferrer"
-              className={`p-3 rounded-2xl bg-gradient-to-b ${site.color} border transition active:scale-[0.98] flex flex-col justify-between`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-white">{site.name}</span>
-                <ExternalLink className="w-3 h-3 text-neutral-400" />
-              </div>
-              <span className="text-[10px] text-neutral-400 truncate font-medium">
-                {currentQueryTerm ? `Найти «${currentQueryTerm}»` : site.badge}
-              </span>
-            </a>
-          ))}
-        </div>
-
-        <div className="p-3 bg-neutral-900/50 border border-neutral-800 rounded-2xl space-y-1">
-          <p className="text-xs font-bold text-white flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            Офлайн сохранение треков:
-          </p>
-          <p className="text-[11px] text-neutral-400 leading-relaxed">
-            • В поиске нажмите кнопку со стрелочкой <strong>(⬇)</strong> — файл скачается в память устройства.<br />
-            • Либо скачайте MP3 на любом портале выше и нажмите <strong>«+ Добавить»</strong> в шапке приложения.
-          </p>
-        </div>
-      </div>
     </div>
   );
 };

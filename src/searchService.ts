@@ -25,7 +25,9 @@ export async function getPopularTracks(): Promise<SearchTrack[]> {
   const seen = new Set<string>();
 
   try {
-    const res = await fetch('https://itunes.apple.com/ru/rss/topsongs/limit=30/json');
+    const res = await fetch('https://itunes.apple.com/ru/rss/topsongs/limit=30/json', {
+      signal: AbortSignal.timeout(10000),
+    });
     const data = await res.json();
     const entries = data.feed?.entry || [];
 
@@ -85,7 +87,9 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
   try {
     const cleanUrl = url.trim().replace(/^http:/, 'https:');
     const oembedUrl = `https://soundcloud.com/oembed?url=${encodeURIComponent(cleanUrl)}&format=json`;
-    const res = await fetch(oembedUrl);
+    const res = await fetch(oembedUrl, {
+      signal: AbortSignal.timeout(10000),
+    });
     if (!res.ok) return null;
 
     const data = await res.json();
@@ -131,10 +135,7 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
   }
 }
 
-// Cloudflare Worker API Base URL
-export const WORKER_API_BASE = 'https://music-app.savelii-k28.workers.dev';
-
-// Multi-catalog fast search: Cloudflare Worker (Full MP3), Open Audio Archive, iTunes RU & Global, SoundCloud
+// Multi-catalog search: iTunes RU & Global (30s preview), Open Audio Archive (Full MP3), SoundCloud
 export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const q = query.trim();
   if (!q) return [];
@@ -151,53 +152,17 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const seen = new Set<string>();
   const encodedQuery = encodeURIComponent(q);
 
-  // 2. Query Cloudflare Worker (Full MP3 tracks from Muzofond & SoundCloud)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
-
-    const workerRes = await fetch(`${WORKER_API_BASE}/api/search?q=${encodedQuery}`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (workerRes.ok) {
-      const data = await workerRes.json();
-      if (Array.isArray(data.results) && data.results.length > 0) {
-        data.results.forEach((item: any) => {
-          const key = `${item.artist} - ${item.title}`.toLowerCase();
-          if (!seen.has(key)) {
-            seen.add(key);
-            results.push({
-              id: item.id || `worker-${Math.random().toString(36).substring(2, 8)}`,
-              title: item.title,
-              artist: item.artist,
-              album: item.album || 'Полный трек',
-              duration: item.duration || 210,
-              coverUrl: item.coverUrl,
-              audioUrl: item.audioUrl,
-              isFullVersion: true,
-              source: item.source || 'muzofond',
-            });
-          }
-        });
-      }
-    }
-  } catch (err) {
-    console.warn('Worker search skipped or timed out, using multi-source fallback:', err);
-  }
-
-  // If worker returned strong results (>= 3 tracks), return them right away!
-  if (results.length >= 3) {
-    return results;
-  }
-
-  // 3. Multi-source Fallback: Russia & Global iTunes + Open Archive
   try {
     const [ruRes, globalRes, archiveRes] = await Promise.allSettled([
-      fetch(`https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=25`).then((r) => r.json()),
-      fetch(`https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=25`).then((r) => r.json()),
-      fetch(`https://archive.org/advancedsearch.php?q=(${encodedQuery})+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=15&output=json`).then((r) => r.json()),
+      fetch(`https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=25`, {
+        signal: AbortSignal.timeout(10000),
+      }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=25`, {
+        signal: AbortSignal.timeout(10000),
+      }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`https://archive.org/advancedsearch.php?q=(${encodedQuery})+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=15&output=json`, {
+        signal: AbortSignal.timeout(10000),
+      }).then((r) => (r.ok ? r.json() : null)),
     ]);
 
     // 1. Open Audio Archive items (Full MP3 songs)
@@ -313,7 +278,9 @@ export interface AlbumTrackItem {
   album: string;
   coverUrl?: string;
   duration: number;
-  searchQuery: string;
+  previewUrl?: string;
+  audioUrl?: string;
+  searchQuery?: string;
 }
 
 export async function searchAlbums(query: string): Promise<SearchAlbum[]> {
@@ -321,21 +288,8 @@ export async function searchAlbums(query: string): Promise<SearchAlbum[]> {
   if (!q) return [];
 
   try {
-    const res = await fetch(`${WORKER_API_BASE}/api/albums?q=${encodeURIComponent(q)}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.albums)) {
-        return data.albums;
-      }
-    }
-  } catch (err) {
-    console.warn('Worker albums error, falling back to iTunes:', err);
-  }
-
-  // Fallback: direct iTunes API call
-  try {
-    const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&country=ru&limit=25`;
-    const res = await fetch(itUrl);
+    const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=25&country=ru`;
+    const res = await fetch(itUrl, { signal: AbortSignal.timeout(10000) });
     if (res.ok) {
       const data = await res.json();
       return (data.results || []).map((alb: any) => ({
@@ -349,28 +303,17 @@ export async function searchAlbums(query: string): Promise<SearchAlbum[]> {
         primaryGenreName: alb.primaryGenreName,
       }));
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Search albums error:', err);
+  }
 
   return [];
 }
 
 export async function getAlbumTracks(collectionId: string | number): Promise<{ album: any; tracks: AlbumTrackItem[] }> {
   try {
-    const res = await fetch(`${WORKER_API_BASE}/api/album-tracks?id=${collectionId}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.tracks)) {
-        return data;
-      }
-    }
-  } catch (err) {
-    console.warn('Worker album-tracks error, fallback to iTunes:', err);
-  }
-
-  // Direct iTunes fallback
-  try {
-    const lookupUrl = `https://itunes.apple.com/lookup?id=${collectionId}&entity=song`;
-    const res = await fetch(lookupUrl);
+    const lookupUrl = `https://itunes.apple.com/lookup?id=${collectionId}&entity=song&country=ru`;
+    const res = await fetch(lookupUrl, { signal: AbortSignal.timeout(10000) });
     if (res.ok) {
       const data = await res.json();
       const items = data.results || [];
@@ -384,11 +327,15 @@ export async function getAlbumTracks(collectionId: string | number): Promise<{ a
         album: albumMeta.collectionName || t.collectionName,
         coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
         duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 210,
+        previewUrl: t.previewUrl,
+        audioUrl: t.previewUrl,
         searchQuery: `${t.artistName} ${t.trackName}`,
       }));
       return { album: albumMeta, tracks };
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Get album tracks error:', err);
+  }
 
   return { album: {}, tracks: [] };
 }
