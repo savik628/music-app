@@ -56,10 +56,10 @@
   position: relative;
 }
 
-/* Screen Content Area (like VIV screen-content) */
+/* Screen Content Area */
 .screen-content {
   flex: 1;
-  padding: 14px 16px calc(84px + env(safe-area-inset-bottom, 0px)) 16px;
+  padding: 14px 16px 115px 16px;
   overflow-y: auto;
   overflow-x: hidden;
   max-width: 100%;
@@ -85,7 +85,7 @@
   border-bottom: 1px solid #24242a;
 }
 
-/* Bottom Navigation Bar (exact VIV bottom-nav layout) */
+/* Bottom Navigation Bar - Flush to bottom edge, compact */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -94,17 +94,16 @@
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
-  min-height: 60px;
-  height: calc(60px + env(safe-area-inset-bottom, 0px));
-  background-color: rgba(18, 18, 21, 0.94);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  border-top: 1px solid #24242a;
+  height: 50px;
+  background-color: rgba(14, 14, 16, 0.96);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 30;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: 2px;
 }
 
 .nav-item {
@@ -114,12 +113,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   cursor: pointer;
-  gap: 3px;
+  gap: 2px;
   flex: 1;
-  padding: 6px 2px;
+  padding: 4px 2px;
   transition: color 0.15s, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 0;
 }
@@ -137,17 +136,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
-/* Floating Mini Player (docked above bottom-nav like VIV rest-timer) */
+/* Floating Mini Player (docked right above 50px bottom-nav) */
 .mini-player-bar {
   position: fixed;
-  bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  bottom: 56px;
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 24px);
+  width: calc(100% - 20px);
   max-width: 456px;
   z-index: 40;
 }

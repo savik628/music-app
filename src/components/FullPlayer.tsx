@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, Volume2, Shuffle, Repeat } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, Volume2, Shuffle, Repeat, X } from 'lucide-react';
 import type { Track } from '../types';
 import { CoverImage } from './CoverImage';
 import { audioEngine } from '../audio';
@@ -32,6 +32,8 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
   toggleRepeat,
 }) => {
   const [volume, setVolume] = useState(1);
+  const [dragY, setDragY] = useState(0);
+  const touchStartY = useRef<number | null>(null);
 
   const formatTime = (secs: number) => {
     if (isNaN(secs)) return '0:00';
@@ -51,26 +53,74 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
     audioEngine.setVolume(val);
   };
 
+  // Swipe-down to dismiss gesture
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const currentY = e.touches[0].clientY;
+    const delta = currentY - touchStartY.current;
+    if (delta > 0) {
+      setDragY(delta);
+    }
+  };
+
+  const onTouchEnd = () => {
+    if (dragY > 60) {
+      onClose();
+    }
+    setDragY(0);
+    touchStartY.current = null;
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white px-6 pt-safe pb-safe animate-in fade-in slide-in-from-bottom duration-200">
-      {/* Top Handle / Close */}
-      <div className="flex items-center justify-between mb-2 pt-2">
+    <div
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{
+        transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+        transition: dragY === 0 ? 'transform 0.2s ease-out' : 'none',
+      }}
+      className="fixed inset-0 z-50 flex flex-col bg-black text-white px-6 pt-4 pb-8 overflow-y-auto"
+    >
+      {/* Top Handle Grabber - Tap or Swipe down to close */}
+      <button
+        onClick={onClose}
+        className="w-full flex items-center justify-center py-2 -mt-1 mb-1 focus:outline-none"
+        aria-label="Свернуть плеер"
+      >
+        <div className="w-12 h-1.5 bg-neutral-600 hover:bg-neutral-400 rounded-full transition" />
+      </button>
+
+      {/* Header Bar */}
+      <div className="flex items-center justify-between mb-2">
         <button
           onClick={onClose}
-          className="p-2 -ml-2 text-neutral-400 active:text-white"
+          className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white active:scale-90 transition shadow"
+          title="Свернуть"
         >
-          <ChevronDown className="w-7 h-7" />
+          <ChevronDown className="w-6 h-6" />
         </button>
+
         <span className="text-[11px] uppercase tracking-wider text-neutral-400 font-bold">
           Сейчас играет
         </span>
-        <div className="w-7" />
+
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-full text-xs font-bold text-neutral-300 active:scale-95 transition"
+        >
+          Свернуть
+        </button>
       </div>
 
       {/* Album Cover Art */}
-      <div className="flex-1 flex items-center justify-center my-3">
-        <div className="w-72 h-72 sm:w-80 sm:h-80 rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl">
-          <CoverImage blob={track.coverBlob} alt={track.title} className="w-full h-full object-cover rounded-2xl" />
+      <div className="flex-1 flex items-center justify-center my-3 min-h-0">
+        <div className="w-64 h-64 sm:w-80 sm:h-80 rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl bg-neutral-900">
+          <CoverImage blob={track.coverBlob} alt={track.title} className="w-full h-full object-cover rounded-3xl" />
         </div>
       </div>
 
@@ -99,50 +149,44 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
       </div>
 
       {/* Playback Controls */}
-      <div className="flex items-center justify-between px-3 mb-6">
+      <div className="flex items-center justify-between mb-6 px-4">
         <button
           onClick={toggleShuffle}
-          className={`p-2 rounded-full transition ${isShuffle ? 'text-white font-bold' : 'text-neutral-500'}`}
+          className={`p-2 transition ${isShuffle ? 'text-white' : 'text-neutral-600'}`}
         >
           <Shuffle className="w-5 h-5" />
         </button>
 
-        <button
-          onClick={onPrev}
-          className="p-3 text-neutral-300 active:scale-95 transition"
-        >
-          <SkipBack className="w-8 h-8 fill-current" />
+        <button onClick={onPrev} className="p-2 text-white active:scale-90 transition">
+          <SkipBack className="w-7 h-7 fill-current" />
         </button>
 
         <button
           onClick={() => audioEngine.togglePlay()}
-          className="p-5 bg-white text-black rounded-full shadow-lg active:scale-95 transition"
+          className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center active:scale-95 transition shadow-xl"
         >
           {isPlaying ? (
-            <Pause className="w-8 h-8 fill-current" />
+            <Pause className="w-7 h-7 fill-current text-black" />
           ) : (
-            <Play className="w-8 h-8 fill-current translate-x-0.5" />
+            <Play className="w-7 h-7 fill-current text-black translate-x-0.5" />
           )}
         </button>
 
-        <button
-          onClick={onNext}
-          className="p-3 text-neutral-300 active:scale-95 transition"
-        >
-          <SkipForward className="w-8 h-8 fill-current" />
+        <button onClick={onNext} className="p-2 text-white active:scale-90 transition">
+          <SkipForward className="w-7 h-7 fill-current" />
         </button>
 
         <button
           onClick={toggleRepeat}
-          className={`p-2 rounded-full transition ${isRepeat ? 'text-white font-bold' : 'text-neutral-500'}`}
+          className={`p-2 transition ${isRepeat ? 'text-white' : 'text-neutral-600'}`}
         >
           <Repeat className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Volume Control */}
-      <div className="flex items-center gap-3 px-3 pb-4">
-        <Volume2 className="w-4 h-4 text-neutral-500" />
+      {/* Hardware-Independent Software Volume (iOS Web Audio API GainNode) */}
+      <div className="flex items-center gap-3 px-4 pb-2">
+        <Volume2 className="w-4 h-4 text-neutral-400" />
         <input
           type="range"
           min="0"
