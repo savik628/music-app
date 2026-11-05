@@ -618,60 +618,61 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Mini Player (docked right above bottom-nav like VIV rest-timer) */}
-      {currentTrack && !isFullPlayerOpen && (
-        <div className="mini-player-bar animate-in slide-in-from-bottom-2 duration-150">
-          <MiniPlayer
-            track={currentTrack}
-            isPlaying={isPlaying}
-            onOpen={() => setIsFullPlayerOpen(true)}
-            onNext={() => handleNextTrack()}
-          />
-        </div>
-      )}
-
-      {/* Bottom Navigation Bar (exact VIV layout) */}
-      <nav className="bottom-nav">
-        <button
-          onClick={() => setActiveTab('library')}
-          className={`nav-item ${activeTab === 'library' ? 'active' : ''}`}
-        >
-          <div className="nav-icon">
-            <Library className="w-5 h-5" />
+      {/* Unified Bottom Dock: Holds MiniPlayer and TabBar in a single aligned stack */}
+      <div className="bottom-dock">
+        {currentTrack && !isFullPlayerOpen && (
+          <div className="mini-player-wrapper animate-in slide-in-from-bottom-2 duration-150">
+            <MiniPlayer
+              track={currentTrack}
+              isPlaying={isPlaying}
+              onOpen={() => setIsFullPlayerOpen(true)}
+              onNext={() => handleNextTrack()}
+            />
           </div>
-          <span>Медиатека</span>
-        </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('albums')}
-          className={`nav-item ${activeTab === 'albums' ? 'active' : ''}`}
-        >
-          <div className="nav-icon">
-            <Disc3 className="w-5 h-5" />
-          </div>
-          <span>Альбомы</span>
-        </button>
+        <nav className="bottom-nav">
+          <button
+            onClick={() => setActiveTab('library')}
+            className={`nav-item ${activeTab === 'library' ? 'active' : ''}`}
+          >
+            <div className="nav-icon">
+              <Library className="w-5 h-5" />
+            </div>
+            <span>Медиатека</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('artists')}
-          className={`nav-item ${activeTab === 'artists' ? 'active' : ''}`}
-        >
-          <div className="nav-icon">
-            <User className="w-5 h-5" />
-          </div>
-          <span>Артисты</span>
-        </button>
+          <button
+            onClick={() => setActiveTab('albums')}
+            className={`nav-item ${activeTab === 'albums' ? 'active' : ''}`}
+          >
+            <div className="nav-icon">
+              <Disc3 className="w-5 h-5" />
+            </div>
+            <span>Альбомы</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('search')}
-          className={`nav-item ${activeTab === 'search' ? 'active' : ''}`}
-        >
-          <div className="nav-icon">
-            <Search className="w-5 h-5" />
-          </div>
-          <span>Поиск</span>
-        </button>
-      </nav>
+          <button
+            onClick={() => setActiveTab('artists')}
+            className={`nav-item ${activeTab === 'artists' ? 'active' : ''}`}
+          >
+            <div className="nav-icon">
+              <User className="w-5 h-5" />
+            </div>
+            <span>Артисты</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('search')}
+            className={`nav-item ${activeTab === 'search' ? 'active' : ''}`}
+          >
+            <div className="nav-icon">
+              <Search className="w-5 h-5" />
+            </div>
+            <span>Поиск</span>
+          </button>
+        </nav>
+      </div>
 
       {/* Modal: Add Track to Custom Album */}
       {trackForAlbumModal && (
