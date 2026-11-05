@@ -68,7 +68,7 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
   };
 
   const onTouchEnd = () => {
-    if (dragY > 60) {
+    if (dragY > 40) {
       onClose();
     }
     setDragY(0);
@@ -84,22 +84,22 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
         transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
         transition: dragY === 0 ? 'transform 0.2s ease-out' : 'none',
       }}
-      className="fixed inset-0 z-50 flex flex-col bg-black text-white px-6 pt-4 pb-8 overflow-y-auto"
+      className="fixed inset-0 z-50 flex flex-col bg-black text-white px-6 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-[calc(env(safe-area-inset-bottom,0px)+16px)] overflow-y-auto"
     >
       {/* Top Handle Grabber - Tap or Swipe down to close */}
-      <button
+      <div
         onClick={onClose}
-        className="w-full flex items-center justify-center py-2 -mt-1 mb-1 focus:outline-none"
+        className="w-full flex items-center justify-center py-2.5 -mt-1 mb-1 cursor-pointer touch-none"
         aria-label="Свернуть плеер"
       >
-        <div className="w-12 h-1.5 bg-neutral-600 hover:bg-neutral-400 rounded-full transition" />
-      </button>
+        <div className="w-14 h-1.5 bg-neutral-500 hover:bg-neutral-400 rounded-full transition" />
+      </div>
 
       {/* Header Bar */}
       <div className="flex items-center justify-between mb-2">
         <button
           onClick={onClose}
-          className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white active:scale-90 transition shadow"
+          className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-700/80 flex items-center justify-center text-white active:scale-90 transition shadow"
           title="Свернуть"
         >
           <ChevronDown className="w-6 h-6" />
@@ -111,9 +111,10 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
 
         <button
           onClick={onClose}
-          className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-full text-xs font-bold text-neutral-300 active:scale-95 transition"
+          className="px-3.5 py-1.5 bg-neutral-900 border border-neutral-700/80 rounded-full text-xs font-bold text-neutral-200 active:scale-95 transition flex items-center gap-1 shadow"
         >
-          Свернуть
+          <X className="w-3.5 h-3.5" />
+          <span>Закрыть</span>
         </button>
       </div>
 
@@ -197,6 +198,15 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({
           className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white"
         />
       </div>
+
+      {/* Quick One-Handed Dismiss Button */}
+      <button
+        onClick={onClose}
+        className="w-full mt-2 py-3 bg-neutral-900 hover:bg-neutral-800 active:scale-98 border border-neutral-800 rounded-2xl text-xs font-semibold text-neutral-300 flex items-center justify-center gap-1.5 transition"
+      >
+        <ChevronDown className="w-4 h-4" />
+        <span>Свернуть плеер</span>
+      </button>
     </div>
   );
 };

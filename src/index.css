@@ -8,39 +8,38 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  html {
-    background-color: #000000;
-    color: #ffffff;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", -apple-system-subheadline, "Helvetica Neue", Arial, sans-serif;
-    background-color: #000000;
-    color: #ffffff;
-    display: flex;
-    justify-content: center;
-    min-height: 100vh;
-    min-height: 100dvh;
+  html, body {
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    font-size: 15px;
-    line-height: 1.45;
+    overflow: hidden;
+    background-color: #000000;
+    color: #ffffff;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
     overscroll-behavior: none;
   }
 
-  #root {
-    width: 100%;
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", -apple-system-subheadline, "Helvetica Neue", Arial, sans-serif;
     display: flex;
     justify-content: center;
-    min-height: 100vh;
-    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
   }
 }
 
@@ -48,20 +47,21 @@
 .app-container {
   width: 100%;
   max-width: 480px;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  height: 100dvh;
   background-color: #000000;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 /* Screen Content Area */
 .screen-content {
   flex: 1;
-  padding: 14px 16px 115px 16px;
+  padding: 14px 16px calc(76px + env(safe-area-inset-bottom, 0px)) 16px;
   overflow-y: auto;
-  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -85,7 +85,7 @@
   border-bottom: 1px solid #24242a;
 }
 
-/* Bottom Navigation Bar - Flush to bottom edge, compact */
+/* Bottom Navigation Bar - Flush to bottom edge, exact VIV geometry */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -94,16 +94,17 @@
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
-  height: 50px;
+  min-height: 56px;
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
   background-color: rgba(14, 14, 16, 0.96);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 30;
-  padding-bottom: 2px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .nav-item {
@@ -113,10 +114,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 500;
   cursor: pointer;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   padding: 4px 2px;
   transition: color 0.15s, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
@@ -140,10 +141,10 @@
   height: 22px;
 }
 
-/* Floating Mini Player (docked right above 50px bottom-nav) */
+/* Floating Mini Player (docked right above bottom-nav like VIV timer) */
 .mini-player-bar {
   position: fixed;
-  bottom: 56px;
+  bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 20px);

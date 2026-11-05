@@ -131,7 +131,10 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
   }
 }
 
-// Multi-catalog fast search: Open Audio Archive, iTunes RU & Global, SoundCloud
+// Cloudflare Worker API Base URL
+export const WORKER_API_BASE = 'https://music-app.savelii-k28.workers.dev';
+
+// Multi-catalog fast search: Cloudflare Worker (Full MP3), Open Audio Archive, iTunes RU & Global, SoundCloud
 export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const q = query.trim();
   if (!q) return [];
@@ -148,8 +151,49 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const seen = new Set<string>();
   const encodedQuery = encodeURIComponent(q);
 
+  // 2. Query Cloudflare Worker (Full MP3 tracks from Muzofond & SoundCloud)
   try {
-    // Search Russia & Global iTunes and Open Archive simultaneously
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+    const workerRes = await fetch(`${WORKER_API_BASE}/api/search?q=${encodedQuery}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (workerRes.ok) {
+      const data = await workerRes.json();
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        data.results.forEach((item: any) => {
+          const key = `${item.artist} - ${item.title}`.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            results.push({
+              id: item.id || `worker-${Math.random().toString(36).substring(2, 8)}`,
+              title: item.title,
+              artist: item.artist,
+              album: item.album || 'Полный трек',
+              duration: item.duration || 210,
+              coverUrl: item.coverUrl,
+              audioUrl: item.audioUrl,
+              isFullVersion: true,
+              source: item.source || 'muzofond',
+            });
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Worker search skipped or timed out, using multi-source fallback:', err);
+  }
+
+  // If worker returned strong results (>= 3 tracks), return them right away!
+  if (results.length >= 3) {
+    return results;
+  }
+
+  // 3. Multi-source Fallback: Russia & Global iTunes + Open Archive
+  try {
     const [ruRes, globalRes, archiveRes] = await Promise.allSettled([
       fetch(`https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=25`).then((r) => r.json()),
       fetch(`https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=25`).then((r) => r.json()),
