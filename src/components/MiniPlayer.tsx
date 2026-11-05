@@ -20,15 +20,15 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   return (
     <div
       onClick={onOpen}
-      className="mini-player-glass p-2.5 rounded-2xl flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition duration-200"
+      className="mini-player-island p-2 rounded-2xl flex items-center justify-between cursor-pointer active:scale-[0.99] transition duration-200"
     >
       <div className="flex items-center gap-3 overflow-hidden flex-1">
-        <div className="w-11 h-11 flex-shrink-0">
-          <CoverImage blob={track.coverBlob} alt={track.title} className="w-full h-full object-cover rounded-xl shadow-md" />
+        <div className="w-10 h-10 flex-shrink-0">
+          <CoverImage blob={track.coverBlob} alt={track.title} className="w-full h-full object-cover rounded-xl" />
         </div>
         <div className="overflow-hidden pr-2">
-          <p className="text-sm font-semibold truncate text-white">{track.title}</p>
-          <p className="text-xs text-neutral-400 truncate">{track.artist}</p>
+          <p className="text-sm font-semibold truncate text-white leading-tight">{track.title}</p>
+          <p className="text-xs text-neutral-400 truncate mt-0.5">{track.artist}</p>
         </div>
       </div>
 

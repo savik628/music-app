@@ -6,10 +6,66 @@ export interface SearchTrack {
   coverUrl?: string;
   audioUrl?: string;
   duration: number;
-  source: 'russian-archive' | 'itunes' | 'open-web';
 }
 
-// Deep Multi-Engine Search focusing on Russian Music catalogs & Open Audio
+// Top Popular Songs Cache
+let popularSongsCache: SearchTrack[] | null = null;
+
+// Fetch Top Trending Songs for immediate display
+export async function getPopularTracks(): Promise<SearchTrack[]> {
+  if (popularSongsCache && popularSongsCache.length > 0) {
+    return popularSongsCache;
+  }
+
+  const tracks: SearchTrack[] = [];
+  const seen = new Set<string>();
+
+  try {
+    const res = await fetch('https://itunes.apple.com/ru/rss/topsongs/limit=30/json');
+    const data = await res.json();
+    const entries = data.feed?.entry || [];
+
+    entries.forEach((e: any) => {
+      const title = e['im:name']?.label || e.title?.label || 'Без названия';
+      const artist = e['im:artist']?.label || 'Популярный артист';
+      const key = `${artist} - ${title}`.toLowerCase();
+
+      // Find audio preview
+      const previewLink = e.link?.find((l: any) => l.attributes?.type?.startsWith('audio/'));
+      const audioUrl = previewLink ? previewLink.attributes.href : undefined;
+
+      // Find cover
+      const images = e['im:image'] || [];
+      const coverUrl = images.length > 0 ? images[images.length - 1].label : undefined;
+
+      if (!seen.has(key) && audioUrl) {
+        seen.add(key);
+        tracks.push({
+          id: `pop-${e.id?.attributes?.['im:id'] || Math.random().toString(36).substring(2, 7)}`,
+          title,
+          artist,
+          album: e['im:collection']?.['im:name']?.label || 'Популярное',
+          coverUrl: coverUrl ? coverUrl.replace(/\/\d+x\d+bb/, '/300x300bb') : undefined,
+          audioUrl,
+          duration: 30,
+        });
+      }
+    });
+  } catch (err) {
+    console.warn('Failed to load RSS top songs, using curated fallback:', err);
+  }
+
+  // If RSS failed or returned little, provide solid popular fallback
+  if (tracks.length < 5) {
+    const fallbackSearch = await searchTracks('Miyagi');
+    tracks.push(...fallbackSearch.slice(0, 10));
+  }
+
+  popularSongsCache = tracks;
+  return tracks;
+}
+
+// Multi-catalog fast search
 export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const q = query.trim();
   if (!q) return [];
@@ -19,34 +75,39 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const encodedQuery = encodeURIComponent(q);
 
   try {
-    // 1. Search Open Russian Audio Archive (full tracks including Скриптонит, Баста, etc.)
-    const archivePromise = fetch(
-      `https://archive.org/advancedsearch.php?q=(${encodedQuery})+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=30&output=json`
-    )
-      .then((r) => r.json())
-      .catch(() => ({ response: { docs: [] } }));
-
-    // 2. Search iTunes RU Store (high-definition metadata & 30s previews)
-    const itunesRuPromise = fetch(
-      `https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=40`
-    )
-      .then((r) => r.json())
-      .catch(() => ({ results: [] }));
-
-    // 3. Search iTunes Global (for western or international tracks)
-    const itunesGlobalPromise = fetch(
-      `https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=30`
-    )
-      .then((r) => r.json())
-      .catch(() => ({ results: [] }));
-
-    const [archiveRes, itunesRu, itunesGlobal] = await Promise.allSettled([
-      archivePromise,
-      itunesRuPromise,
-      itunesGlobalPromise,
+    // Search Russia & Global catalog simultaneously
+    const [ruRes, globalRes, archiveRes] = await Promise.allSettled([
+      fetch(`https://itunes.apple.com/search?term=${encodedQuery}&country=ru&entity=song&limit=25`).then((r) => r.json()),
+      fetch(`https://itunes.apple.com/search?term=${encodedQuery}&entity=song&limit=25`).then((r) => r.json()),
+      fetch(`https://archive.org/advancedsearch.php?q=(${encodedQuery})+AND+mediatype:audio&fl[]=identifier,title,creator,album&rows=15&output=json`).then((r) => r.json()),
     ]);
 
-    // Priority 1: Full Russian audio files from Archive
+    // 1. iTunes RU & Global
+    const itunesList: any[] = [];
+    if (ruRes.status === 'fulfilled' && ruRes.value?.results) {
+      itunesList.push(...ruRes.value.results);
+    }
+    if (globalRes.status === 'fulfilled' && globalRes.value?.results) {
+      itunesList.push(...globalRes.value.results);
+    }
+
+    itunesList.forEach((t) => {
+      const key = `${t.artistName} - ${t.trackName}`.toLowerCase();
+      if (!seen.has(key) && t.previewUrl) {
+        seen.add(key);
+        results.push({
+          id: `itunes-${t.trackId}`,
+          title: t.trackName || 'Без названия',
+          artist: t.artistName || 'Неизвестный исполнитель',
+          album: t.collectionName || 'Сингл',
+          coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '400x400bb') : undefined,
+          audioUrl: t.previewUrl,
+          duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 30,
+        });
+      }
+    });
+
+    // 2. Open Audio Archive items
     if (archiveRes.status === 'fulfilled' && archiveRes.value?.response?.docs) {
       const docs = archiveRes.value.response.docs;
       docs.forEach((d: any) => {
@@ -55,7 +116,6 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
         if (!seen.has(key) && d.identifier) {
           seen.add(key);
 
-          // Extract artist from title if in format "Исполнитель – Название"
           let artist = d.creator || 'Русская музыка';
           let title = rawTitle;
           if (rawTitle.includes('–')) {
@@ -76,39 +136,12 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
             coverUrl: `https://archive.org/services/img/${d.identifier}`,
             audioUrl: `https://archive.org/download/${d.identifier}`,
             duration: 0,
-            source: 'russian-archive',
           });
         }
       });
     }
-
-    // Priority 2: Russian & Global iTunes entries
-    const itunesList: any[] = [];
-    if (itunesRu.status === 'fulfilled' && itunesRu.value?.results) {
-      itunesList.push(...itunesRu.value.results);
-    }
-    if (itunesGlobal.status === 'fulfilled' && itunesGlobal.value?.results) {
-      itunesList.push(...itunesGlobal.value.results);
-    }
-
-    itunesList.forEach((t) => {
-      const key = `${t.artistName} - ${t.trackName}`.toLowerCase();
-      if (!seen.has(key) && t.previewUrl) {
-        seen.add(key);
-        results.push({
-          id: `itunes-${t.trackId}`,
-          title: t.trackName || 'Без названия',
-          artist: t.artistName || 'Неизвестный исполнитель',
-          album: t.collectionName || 'Сингл',
-          coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
-          audioUrl: t.previewUrl,
-          duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 30,
-          source: 'itunes',
-        });
-      }
-    });
   } catch (err) {
-    console.error('Multi-engine search error:', err);
+    console.error('Search query error:', err);
   }
 
   return results;

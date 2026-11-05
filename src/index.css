@@ -4,6 +4,7 @@
   :root {
     --sat: env(safe-area-inset-top, 0px);
     --sab: env(safe-area-inset-bottom, 0px);
+    --tab-height: 52px;
   }
 
   *, *::before, *::after {
@@ -11,10 +12,10 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  html, body {
+  html {
     background-color: #000000;
     color: #ffffff;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", -apple-system-subheadline, "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     height: 100%;
@@ -22,6 +23,25 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+  }
+
+  body {
+    background-color: #000000;
+    color: #ffffff;
+    height: 100dvh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
   }
 
   #root {
@@ -35,34 +55,30 @@
 
 /* Safe areas */
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top, 0px), 18px);
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
 }
 
 .pb-safe {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
 }
 
-/* Solid Clean Header without iOS backdrop-filter glitch */
+/* Solid Clean Header without iOS blur glitch */
 .apple-header {
   background-color: #000000;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
+  border-bottom: 0.5px solid #1c1c1e;
 }
 
-/* Crisp Glass Tab Bar */
+/* Solid & Refined Tab Bar */
 .apple-tab-bar {
-  background-color: rgba(14, 14, 14, 0.94);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.12);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  background-color: #0a0a0a;
+  border-top: 0.5px solid #1c1c1e;
 }
 
-/* Mini Player Card */
-.mini-player-card {
-  background-color: #1c1c1e;
-  border: 0.5px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+/* Floating Mini Player Island */
+.mini-player-island {
+  background-color: #1a1a1c;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85);
 }
 
 /* Hide scrollbars */

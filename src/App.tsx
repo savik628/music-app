@@ -162,10 +162,10 @@ export function App() {
 
   return (
     <div className="flex flex-col h-full w-full bg-black text-white overflow-hidden relative">
-      {/* Top Header - Solid Crisp Black without iOS blur glitch */}
+      {/* Top Header - Strict Crisp Black, Apple SF Typography */}
       <header className="apple-header px-5 pt-safe pb-3 flex items-center justify-between flex-shrink-0 z-20">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-white leading-none">
+          <h1 className="text-2xl font-bold tracking-tight text-white leading-none">
             {activeTab === 'library' && 'Медиатека'}
             {activeTab === 'albums' && 'Альбомы'}
             {activeTab === 'artists' && 'Артисты'}
@@ -187,7 +187,7 @@ export function App() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white text-black active:scale-95 rounded-full text-xs font-bold shadow-md transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-black active:scale-95 rounded-full text-xs font-bold shadow-md transition disabled:opacity-50"
           >
             {importing ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
@@ -233,14 +233,14 @@ export function App() {
                       <div
                         key={track.id}
                         onClick={() => handlePlayTrack(track)}
-                        className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition ${
+                        className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition ${
                           isSelected
                             ? 'bg-neutral-800/90 text-white border border-neutral-700/80 shadow'
                             : 'hover:bg-neutral-900/60 active:bg-neutral-900 text-neutral-300'
                         }`}
                       >
                         <div className="flex items-center gap-3 overflow-hidden mr-2">
-                          <div className="w-12 h-12 flex-shrink-0">
+                          <div className="w-11 h-11 flex-shrink-0">
                             <CoverImage
                               blob={track.coverBlob}
                               alt={track.title}
@@ -251,7 +251,7 @@ export function App() {
                             <p className="text-sm font-semibold truncate leading-tight text-white">
                               {track.title}
                             </p>
-                            <p className="text-xs text-neutral-400 truncate mt-1">
+                            <p className="text-xs text-neutral-400 truncate mt-0.5">
                               {track.artist} {track.album ? `• ${track.album}` : ''}
                             </p>
                           </div>
@@ -263,7 +263,7 @@ export function App() {
                           </span>
                           <button
                             onClick={(e) => handleToggleFavorite(track.id, e)}
-                            className={`p-2 transition ${
+                            className={`p-1.5 transition ${
                               track.isFavorite ? 'text-white' : 'text-neutral-500 hover:text-white'
                             }`}
                           >
@@ -271,7 +271,7 @@ export function App() {
                           </button>
                           <button
                             onClick={(e) => handleDelete(track.id, e)}
-                            className="p-2 text-neutral-500 hover:text-white transition"
+                            className="p-1.5 text-neutral-500 hover:text-white transition"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -349,9 +349,9 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Mini Player - Positioned right above bottom bar without overlap */}
+      {/* Floating Mini Player - Mathematical precision above Tab Bar */}
       {currentTrack && !isFullPlayerOpen && (
-        <div className="fixed bottom-[calc(60px+max(env(safe-area-inset-bottom,0px),16px)+10px)] left-3 right-3 z-30">
+        <div className="fixed bottom-[calc(52px+max(env(safe-area-inset-bottom,0px),12px)+8px)] left-3 right-3 z-30">
           <MiniPlayer
             track={currentTrack}
             isPlaying={isPlaying}
@@ -361,8 +361,8 @@ export function App() {
         </div>
       )}
 
-      {/* Crisp Solid Tab Bar with native iPhone spacing */}
-      <nav className="apple-tab-bar fixed bottom-0 left-0 right-0 z-20 px-3 pb-safe pt-2 flex items-center justify-around h-[calc(60px+max(env(safe-area-inset-bottom,0px),16px))]">
+      {/* Solid Minimalist Tab Bar */}
+      <nav className="apple-tab-bar fixed bottom-0 left-0 right-0 z-20 px-3 pb-safe flex items-center justify-around h-[calc(52px+max(env(safe-area-inset-bottom,0px),12px))]">
         <button
           onClick={() => setActiveTab('library')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
