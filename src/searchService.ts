@@ -6,6 +6,9 @@ export interface SearchTrack {
   coverUrl?: string;
   audioUrl?: string;
   duration: number;
+  source?: 'itunes' | 'archive' | 'soundcloud';
+  soundcloudUrl?: string;
+  soundcloudEmbedHtml?: string;
 }
 
 // Top Popular Songs Cache
@@ -48,6 +51,7 @@ export async function getPopularTracks(): Promise<SearchTrack[]> {
           coverUrl: coverUrl ? coverUrl.replace(/\/\d+x\d+bb/, '/300x300bb') : undefined,
           audioUrl,
           duration: 30,
+          source: 'itunes',
         });
       }
     });
@@ -65,10 +69,86 @@ export async function getPopularTracks(): Promise<SearchTrack[]> {
   return tracks;
 }
 
-// Multi-catalog fast search
+/**
+ * Detects if query is a SoundCloud link
+ */
+export function isSoundCloudUrl(query: string): boolean {
+  return /soundcloud\.com\/[\w\-._]+\/[\w\-._]+/i.test(query.trim());
+}
+
+/**
+ * Resolves metadata and artwork from a SoundCloud link using official CORS-friendly oEmbed
+ */
+export async function resolveSoundCloud(url: string): Promise<SearchTrack | null> {
+  try {
+    const cleanUrl = url.trim().replace(/^http:/, 'https:');
+    const oembedUrl = `https://soundcloud.com/oembed?url=${encodeURIComponent(cleanUrl)}&format=json`;
+    const res = await fetch(oembedUrl);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    let rawTitle = data.title || 'SoundCloud Track';
+    let artist = data.author_name || 'SoundCloud';
+
+    // Remove "by Author" suffix if added by SoundCloud oembed
+    rawTitle = rawTitle.replace(/\s+by\s+.*$/i, '').trim();
+
+    // Check if title has "Artist - Track"
+    let title = rawTitle;
+    if (rawTitle.includes(' - ')) {
+      const parts = rawTitle.split(' - ');
+      artist = parts[0].trim();
+      title = parts.slice(1).join(' - ').trim();
+    } else if (rawTitle.includes('–')) {
+      const parts = rawTitle.split('–');
+      artist = parts[0].trim();
+      title = parts.slice(1).join('–').trim();
+    }
+
+    // High quality artwork (500x500 instead of default small thumbnail)
+    let coverUrl = data.thumbnail_url;
+    if (coverUrl) {
+      coverUrl = coverUrl.replace(/-large\./, '-t500x500.').replace(/-badge\./, '-t500x500.');
+    }
+
+    return {
+      id: `sc-${Date.now()}`,
+      title,
+      artist,
+      album: 'SoundCloud',
+      coverUrl,
+      duration: 180,
+      source: 'soundcloud',
+      soundcloudUrl: cleanUrl,
+      soundcloudEmbedHtml: data.html,
+    };
+  } catch (err) {
+    console.error('Error resolving SoundCloud track:', err);
+    return null;
+  }
+}
+
+// Multi-catalog fast search: iTunes RU + US, Archive.org, and SoundCloud resolution
 export async function searchTracks(query: string): Promise<SearchTrack[]> {
   const q = query.trim();
   if (!q) return [];
+
+  // 1. Direct SoundCloud URL check
+  if (isSoundCloudUrl(q)) {
+    const scTrack = await resolveSoundCloud(q);
+    if (scTrack) {
+      // Also try to find audio stream / preview for this track in audio archives
+      const related = await searchTracks(`${scTrack.artist} ${scTrack.title}`);
+      const audioMatch = related.find((t) => t.audioUrl);
+      if (audioMatch) {
+        scTrack.audioUrl = audioMatch.audioUrl;
+        if (!scTrack.duration || scTrack.duration === 180) {
+          scTrack.duration = audioMatch.duration;
+        }
+      }
+      return [scTrack, ...related.slice(0, 15)];
+    }
+  }
 
   const results: SearchTrack[] = [];
   const seen = new Set<string>();
@@ -100,9 +180,10 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
           title: t.trackName || 'Без названия',
           artist: t.artistName || 'Неизвестный исполнитель',
           album: t.collectionName || 'Сингл',
-          coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '400x400bb') : undefined,
+          coverUrl: t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : undefined,
           audioUrl: t.previewUrl,
           duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 30,
+          source: 'itunes',
         });
       }
     });
@@ -136,6 +217,7 @@ export async function searchTracks(query: string): Promise<SearchTrack[]> {
             coverUrl: `https://archive.org/services/img/${d.identifier}`,
             audioUrl: `https://archive.org/download/${d.identifier}`,
             duration: 0,
+            source: 'archive',
           });
         }
       });

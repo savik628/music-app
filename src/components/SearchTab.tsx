@@ -14,6 +14,7 @@ import { saveTrack } from '../db';
 import type { Track } from '../types';
 import { searchTracks, getPopularTracks, type SearchTrack } from '../searchService';
 import { audioEngine } from '../audio';
+import { searchCoverOnline } from '../coverService';
 
 interface SearchTabProps {
   onTrackDownloaded: () => void;
@@ -149,6 +150,14 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
         } catch {}
       }
 
+      // If no cover or failed to fetch, automatically search cover online
+      if (!coverBlob) {
+        try {
+          const found = await searchCoverOnline(item.artist, item.title);
+          if (found) coverBlob = found;
+        } catch {}
+      }
+
       const newTrack: Track = {
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
         title: item.title,
@@ -187,7 +196,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
               setIsSearched(false);
             }
           }}
-          placeholder="Поиск артистов или треков..."
+          placeholder="Поиск треков, артистов или ссылка SoundCloud..."
           className="w-full bg-neutral-900 border border-neutral-800 rounded-2xl pl-10 pr-20 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600 transition"
         />
         {query && (
@@ -297,9 +306,16 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
                   {/* Title and artist */}
                   <div className="overflow-hidden">
-                    <p className="text-sm font-semibold text-white truncate leading-tight">
-                      {res.title}
-                    </p>
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <p className="text-sm font-semibold text-white truncate leading-tight">
+                        {res.title}
+                      </p>
+                      {res.source === 'soundcloud' && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#ff5500]/20 text-[#ff7700] border border-[#ff5500]/40 flex-shrink-0">
+                          SoundCloud
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-neutral-400 truncate mt-0.5">
                       {res.artist}
                     </p>

@@ -10,6 +10,7 @@ import {
   User,
   Loader2,
   FolderPlus,
+  Sparkles,
 } from 'lucide-react';
 import type { Track } from './types';
 import { getAllTracks, saveTrack, deleteTrack, toggleFavorite } from './db';
@@ -21,6 +22,7 @@ import { CoverImage } from './components/CoverImage';
 import { SearchTab } from './components/SearchTab';
 import { AlbumsTab } from './components/AlbumsTab';
 import { AddToAlbumModal } from './components/AddToAlbumModal';
+import { searchCoverOnline } from './coverService';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'library' | 'albums' | 'artists' | 'search'>('library');
@@ -100,6 +102,13 @@ export function App() {
       if (isAudio) {
         try {
           const parsed = await parseAudioFile(file);
+          // If track has no cover, automatically search online
+          if (!parsed.coverBlob) {
+            try {
+              const cover = await searchCoverOnline(parsed.artist, parsed.title);
+              if (cover) parsed.coverBlob = cover;
+            } catch {}
+          }
           await saveTrack(parsed);
           addedCount++;
         } catch (err) {
@@ -163,6 +172,24 @@ export function App() {
     e.stopPropagation();
     await toggleFavorite(id);
     refreshLibrary();
+  };
+
+  const handleFindCover = async (track: Track, e: React.MouseEvent) => {
+    e.stopPropagation();
+    showToast('Поиск заставки в сети...');
+    try {
+      const cover = await searchCoverOnline(track.artist, track.title);
+      if (cover) {
+        track.coverBlob = cover;
+        await saveTrack(track);
+        await refreshLibrary();
+        showToast('Заставка найдена и сохранена!');
+      } else {
+        showToast('Заставка не найдена');
+      }
+    } catch {
+      showToast('Ошибка поиска заставки');
+    }
   };
 
   // Artists grouping
@@ -295,6 +322,16 @@ export function App() {
                           <span className="text-[11px] text-neutral-500 font-mono pr-1">
                             {formatDuration(track.duration)}
                           </span>
+
+                          {!track.coverBlob && (
+                            <button
+                              onClick={(e) => handleFindCover(track, e)}
+                              className="p-1.5 text-neutral-400 hover:text-white transition"
+                              title="Найти заставку в сети"
+                            >
+                              <Sparkles className="w-4 h-4 text-amber-400" />
+                            </button>
+                          )}
 
                           <button
                             onClick={(e) => {
