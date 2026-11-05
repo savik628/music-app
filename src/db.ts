@@ -64,3 +64,45 @@ export async function toggleFavorite(id: string): Promise<boolean> {
   await db.put('tracks', track);
   return track.isFavorite;
 }
+
+// Custom Albums / Playlists API
+export async function savePlaylist(playlist: Playlist): Promise<void> {
+  const db = await getDB();
+  await db.put('playlists', playlist);
+}
+
+export async function getAllPlaylists(): Promise<Playlist[]> {
+  const db = await getDB();
+  const list = await db.getAll('playlists');
+  return list.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function getPlaylist(id: string): Promise<Playlist | undefined> {
+  const db = await getDB();
+  return db.get('playlists', id);
+}
+
+export async function deletePlaylist(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('playlists', id);
+}
+
+export async function addTrackToPlaylist(playlistId: string, trackId: string): Promise<void> {
+  const db = await getDB();
+  const playlist = await db.get('playlists', playlistId);
+  if (playlist) {
+    if (!playlist.trackIds.includes(trackId)) {
+      playlist.trackIds.push(trackId);
+      await db.put('playlists', playlist);
+    }
+  }
+}
+
+export async function removeTrackFromPlaylist(playlistId: string, trackId: string): Promise<void> {
+  const db = await getDB();
+  const playlist = await db.get('playlists', playlistId);
+  if (playlist) {
+    playlist.trackIds = playlist.trackIds.filter((id) => id !== trackId);
+    await db.put('playlists', playlist);
+  }
+}

@@ -13,6 +13,7 @@ import {
 import { saveTrack } from '../db';
 import type { Track } from '../types';
 import { searchTracks, getPopularTracks, type SearchTrack } from '../searchService';
+import { audioEngine } from '../audio';
 
 interface SearchTabProps {
   onTrackDownloaded: () => void;
@@ -31,23 +32,29 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load popular hits on mount
+  // Load popular hits on mount and sync stop signals
   useEffect(() => {
     getPopularTracks()
       .then((data) => setPopularTracks(data))
       .catch((err) => console.warn('Popular tracks error:', err))
       .finally(() => setPopularLoading(false));
 
-    return () => {
+    const unsub = audioEngine.onStopPreview(() => {
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
       }
+      setPreviewTrackId(null);
+    });
+
+    return () => {
+      unsub();
+      audioEngine.stopPreview();
     };
   }, []);
 
   const togglePreview = async (item: SearchTrack) => {
     if (previewTrackId === item.id) {
-      previewAudioRef.current?.pause();
+      audioEngine.stopPreview();
       setPreviewTrackId(null);
       return;
     }
@@ -69,10 +76,13 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
 
     if (!previewAudioRef.current) {
       previewAudioRef.current = new Audio();
-      previewAudioRef.current.addEventListener('ended', () => setPreviewTrackId(null));
+      previewAudioRef.current.addEventListener('ended', () => {
+        setPreviewTrackId(null);
+      });
     }
 
     previewAudioRef.current.src = url;
+    audioEngine.playPreview(previewAudioRef.current);
     previewAudioRef.current.play().catch(() => {});
     setPreviewTrackId(item.id);
   };
@@ -87,10 +97,8 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
       return;
     }
 
-    if (previewAudioRef.current) {
-      previewAudioRef.current.pause();
-      setPreviewTrackId(null);
-    }
+    audioEngine.stopPreview();
+    setPreviewTrackId(null);
 
     setLoading(true);
     setIsSearched(true);
@@ -110,10 +118,8 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
     setQuery('');
     setIsSearched(false);
     setSearchResults([]);
-    if (previewAudioRef.current) {
-      previewAudioRef.current.pause();
-      setPreviewTrackId(null);
-    }
+    audioEngine.stopPreview();
+    setPreviewTrackId(null);
   };
 
   const handleDownload = async (item: SearchTrack) => {

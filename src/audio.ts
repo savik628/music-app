@@ -9,6 +9,8 @@ class AudioEngine {
   private audioCtx: AudioContext | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private softwareVolume: number = 1;
+  private activePreviewAudio: HTMLAudioElement | null = null;
+  private previewStopListeners: Set<() => void> = new Set();
 
   constructor() {
     this.audio = new Audio();
@@ -60,7 +62,40 @@ class AudioEngine {
     this.listeners.forEach((cb) => cb());
   }
 
+  public onStopPreview(cb: () => void) {
+    this.previewStopListeners.add(cb);
+    return () => this.previewStopListeners.delete(cb);
+  }
+
+  public stopPreview() {
+    if (this.activePreviewAudio) {
+      try {
+        this.activePreviewAudio.pause();
+        this.activePreviewAudio.currentTime = 0;
+      } catch {}
+      this.activePreviewAudio = null;
+    }
+    this.previewStopListeners.forEach((cb) => cb());
+  }
+
+  public playPreview(audio: HTMLAudioElement) {
+    // Mutual exclusion: pause library audio
+    this.pause();
+
+    // Stop previous preview if different
+    if (this.activePreviewAudio && this.activePreviewAudio !== audio) {
+      try {
+        this.activePreviewAudio.pause();
+        this.activePreviewAudio.currentTime = 0;
+      } catch {}
+    }
+    this.activePreviewAudio = audio;
+  }
+
   public async playTrack(track: Track) {
+    // Mutual exclusion: stop any active preview
+    this.stopPreview();
+
     if (this.currentBlobUrl) {
       URL.revokeObjectURL(this.currentBlobUrl);
     }
@@ -91,6 +126,7 @@ class AudioEngine {
     }
 
     if (this.audio.paused) {
+      this.stopPreview();
       await this.audio.play();
     } else {
       this.audio.pause();

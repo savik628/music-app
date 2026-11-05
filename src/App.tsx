@@ -9,6 +9,7 @@ import {
   Disc3,
   User,
   Loader2,
+  FolderPlus,
 } from 'lucide-react';
 import type { Track } from './types';
 import { getAllTracks, saveTrack, deleteTrack, toggleFavorite } from './db';
@@ -18,6 +19,8 @@ import { MiniPlayer } from './components/MiniPlayer';
 import { FullPlayer } from './components/FullPlayer';
 import { CoverImage } from './components/CoverImage';
 import { SearchTab } from './components/SearchTab';
+import { AlbumsTab } from './components/AlbumsTab';
+import { AddToAlbumModal } from './components/AddToAlbumModal';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'library' | 'albums' | 'artists' | 'search'>('library');
@@ -34,7 +37,16 @@ export function App() {
   const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
 
+  // Modal / Toast state
+  const [trackForAlbumModal, setTrackForAlbumModal] = useState<Track | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 2500);
+  };
 
   const refreshLibrary = async () => {
     try {
@@ -80,7 +92,6 @@ export function App() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      // On iOS Safari file.type is sometimes empty for downloaded files, so accept audio extension or audio type
       const isAudio =
         file.type.startsWith('audio/') ||
         !file.type ||
@@ -103,6 +114,7 @@ export function App() {
 
     if (addedCount > 0) {
       setActiveTab('library');
+      showToast(`Добавлено треков: ${addedCount}`);
     }
   };
 
@@ -143,6 +155,7 @@ export function App() {
         setCurrentTrack(null);
       }
       refreshLibrary();
+      showToast('Трек удален');
     }
   };
 
@@ -152,16 +165,9 @@ export function App() {
     refreshLibrary();
   };
 
-  // Groupings
-  const albumsMap = tracks.reduce((acc, track) => {
-    const key = track.album || 'Неизвестный альбом';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(track);
-    return acc;
-  }, {} as Record<string, Track[]>);
-
+  // Artists grouping
   const artistsMap = tracks.reduce((acc, track) => {
-    const key = track.artist || 'Неизвестный исполнитель';
+    const key = track.artist?.trim() || 'Неизвестный исполнитель';
     if (!acc[key]) acc[key] = [];
     acc[key].push(track);
     return acc;
@@ -176,8 +182,15 @@ export function App() {
 
   return (
     <div className="flex flex-col h-full w-full bg-black text-white overflow-hidden relative">
-      {/* Top Header - Strict Crisp Black, Apple SF Typography */}
-      <header className="apple-header px-5 pt-safe pb-3 flex items-center justify-between flex-shrink-0 z-20">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-white text-black font-semibold text-xs px-4 py-2 rounded-full shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          {toastMsg}
+        </div>
+      )}
+
+      {/* Top Header - Apple Music Style */}
+      <header className="apple-header px-5 pt-safe pb-2.5 flex items-center justify-between flex-shrink-0 z-20">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white leading-none">
             {activeTab === 'library' && 'Медиатека'}
@@ -214,7 +227,7 @@ export function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 py-3">
+      <main className="flex-1 overflow-y-auto px-4 py-3 pb-[calc(110px+env(safe-area-inset-bottom,0px))]">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-neutral-500">
             <Loader2 className="w-6 h-6 animate-spin text-white" />
@@ -223,7 +236,7 @@ export function App() {
           <>
             {/* Library / Tracks */}
             {activeTab === 'library' && (
-              <div className="space-y-1 pb-44">
+              <div className="space-y-1">
                 {tracks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-center px-4">
                     <div className="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white mb-4 shadow-xl">
@@ -262,8 +275,15 @@ export function App() {
                             />
                           </div>
                           <div className="overflow-hidden">
-                            <p className="text-sm font-semibold truncate leading-tight text-white">
+                            <p className="text-sm font-semibold truncate leading-tight text-white flex items-center gap-2">
                               {track.title}
+                              {isSelected && isPlaying && (
+                                <span className="flex items-end gap-0.5 h-3">
+                                  <span className="w-0.5 bg-white rounded-full eq-bar-1" />
+                                  <span className="w-0.5 bg-white rounded-full eq-bar-2" />
+                                  <span className="w-0.5 bg-white rounded-full eq-bar-3" />
+                                </span>
+                              )}
                             </p>
                             <p className="text-xs text-neutral-400 truncate mt-0.5">
                               {track.artist} {track.album ? `• ${track.album}` : ''}
@@ -271,10 +291,22 @@ export function App() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-[11px] text-neutral-500 font-mono">
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="text-[11px] text-neutral-500 font-mono pr-1">
                             {formatDuration(track.duration)}
                           </span>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTrackForAlbumModal(track);
+                            }}
+                            className="p-1.5 text-neutral-400 hover:text-white transition"
+                            title="В альбом"
+                          >
+                            <FolderPlus className="w-4 h-4" />
+                          </button>
+
                           <button
                             onClick={(e) => handleToggleFavorite(track.id, e)}
                             className={`p-1.5 transition ${
@@ -283,6 +315,7 @@ export function App() {
                           >
                             <Heart className={`w-4 h-4 ${track.isFavorite ? 'fill-current' : ''}`} />
                           </button>
+
                           <button
                             onClick={(e) => handleDelete(track.id, e)}
                             className="p-1.5 text-neutral-500 hover:text-white transition"
@@ -297,61 +330,43 @@ export function App() {
               </div>
             )}
 
-            {/* Albums Tab */}
+            {/* Albums Tab (Full support for custom & tag albums) */}
             {activeTab === 'albums' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-44">
-                {Object.keys(albumsMap).map((albumName) => {
-                  const albumTracks = albumsMap[albumName];
-                  const firstWithCover = albumTracks.find((t) => t.coverBlob);
-
-                  return (
-                    <div
-                      key={albumName}
-                      onClick={() => handlePlayTrack(albumTracks[0])}
-                      className="cursor-pointer group space-y-2 bg-neutral-900/40 p-2.5 rounded-2xl border border-neutral-800/60"
-                    >
-                      <div className="aspect-square w-full rounded-xl overflow-hidden shadow">
-                        <CoverImage
-                          blob={firstWithCover?.coverBlob}
-                          alt={albumName}
-                          className="w-full h-full object-cover rounded-xl"
-                        />
-                      </div>
-                      <div className="px-1">
-                        <h4 className="text-xs font-semibold text-white truncate">{albumName}</h4>
-                        <p className="text-[11px] text-neutral-400 truncate mt-0.5">
-                          {albumTracks[0]?.artist} • {albumTracks.length} треков
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <AlbumsTab
+                tracks={tracks}
+                currentTrack={currentTrack}
+                isPlaying={isPlaying}
+                onPlayTrack={handlePlayTrack}
+              />
             )}
 
             {/* Artists Tab */}
             {activeTab === 'artists' && (
-              <div className="space-y-2 pb-44">
-                {Object.keys(artistsMap).map((artistName) => {
-                  const artistTracks = artistsMap[artistName];
-                  return (
-                    <div
-                      key={artistName}
-                      onClick={() => handlePlayTrack(artistTracks[0])}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-neutral-900/60 hover:bg-neutral-900 transition cursor-pointer border border-neutral-800/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-white">
-                          <User className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white">{artistName}</p>
-                          <p className="text-xs text-neutral-400">{artistTracks.length} треков</p>
+              <div className="space-y-2">
+                {Object.keys(artistsMap).length === 0 ? (
+                  <p className="text-xs text-neutral-500 text-center py-12">Нет исполнителей</p>
+                ) : (
+                  Object.keys(artistsMap).map((artistName) => {
+                    const artistTracks = artistsMap[artistName];
+                    return (
+                      <div
+                        key={artistName}
+                        onClick={() => handlePlayTrack(artistTracks[0])}
+                        className="flex items-center justify-between p-3.5 rounded-2xl bg-neutral-900/60 hover:bg-neutral-900 transition cursor-pointer border border-neutral-800/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-white">
+                            <User className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-white">{artistName}</p>
+                            <p className="text-xs text-neutral-400">{artistTracks.length} треков</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             )}
 
@@ -365,7 +380,7 @@ export function App() {
 
       {/* Floating Mini Player - Mathematical precision above Tab Bar */}
       {currentTrack && !isFullPlayerOpen && (
-        <div className="fixed bottom-[calc(52px+max(env(safe-area-inset-bottom,0px),12px)+8px)] left-3 right-3 z-30">
+        <div className="fixed bottom-[calc(50px+env(safe-area-inset-bottom,0px)+8px)] left-3 right-3 z-30">
           <MiniPlayer
             track={currentTrack}
             isPlaying={isPlaying}
@@ -375,8 +390,8 @@ export function App() {
         </div>
       )}
 
-      {/* Solid Minimalist Tab Bar */}
-      <nav className="apple-tab-bar fixed bottom-0 left-0 right-0 z-20 px-3 pb-safe flex items-center justify-around h-[calc(52px+max(env(safe-area-inset-bottom,0px),12px))]">
+      {/* Clean Solid iOS Tab Bar - No awkward raised gap */}
+      <nav className="apple-tab-bar fixed bottom-0 left-0 right-0 z-20 px-3 pb-safe flex items-center justify-around h-[calc(50px+env(safe-area-inset-bottom,0px))]">
         <button
           onClick={() => setActiveTab('library')}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition ${
@@ -384,7 +399,7 @@ export function App() {
           }`}
         >
           <Library className="w-5 h-5" />
-          <span className="text-[11px] mt-1 font-medium">Медиатека</span>
+          <span className="text-[10px] mt-0.5 font-medium">Медиатека</span>
         </button>
 
         <button
@@ -394,7 +409,7 @@ export function App() {
           }`}
         >
           <Disc3 className="w-5 h-5" />
-          <span className="text-[11px] mt-1 font-medium">Альбомы</span>
+          <span className="text-[10px] mt-0.5 font-medium">Альбомы</span>
         </button>
 
         <button
@@ -404,7 +419,7 @@ export function App() {
           }`}
         >
           <User className="w-5 h-5" />
-          <span className="text-[11px] mt-1 font-medium">Артисты</span>
+          <span className="text-[10px] mt-0.5 font-medium">Артисты</span>
         </button>
 
         <button
@@ -414,9 +429,21 @@ export function App() {
           }`}
         >
           <Search className="w-5 h-5" />
-          <span className="text-[11px] mt-1 font-medium">Поиск</span>
+          <span className="text-[10px] mt-0.5 font-medium">Поиск</span>
         </button>
       </nav>
+
+      {/* Modal: Add Track to Custom Album */}
+      {trackForAlbumModal && (
+        <AddToAlbumModal
+          track={trackForAlbumModal}
+          onClose={() => setTrackForAlbumModal(null)}
+          onAdded={(albumName) => {
+            showToast(`Добавлено в «${albumName}»`);
+            refreshLibrary();
+          }}
+        />
+      )}
 
       {/* Fullscreen Player Modal */}
       {currentTrack && isFullPlayerOpen && (
@@ -437,4 +464,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;
