@@ -7,8 +7,6 @@ export interface SearchTrack {
   audioUrl?: string;
   duration: number;
   source?: 'itunes' | 'archive' | 'soundcloud';
-  soundcloudUrl?: string;
-  soundcloudEmbedHtml?: string;
   isFullVersion?: boolean;
 }
 
@@ -125,8 +123,6 @@ export async function resolveSoundCloud(url: string): Promise<SearchTrack | null
       coverUrl,
       duration: 210,
       source: 'soundcloud',
-      soundcloudUrl: cleanUrl,
-      soundcloudEmbedHtml: data.html,
       isFullVersion: true,
     };
   } catch (err) {

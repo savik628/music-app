@@ -576,7 +576,6 @@ export function App() {
                 currentTrack={currentTrack}
                 isPlaying={isPlaying}
                 onPlayTrack={handlePlayTrack}
-                onAddToAlbumRequest={(track) => setTrackForAlbumModal(track)}
               />
             )}
 

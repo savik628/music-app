@@ -4,10 +4,8 @@ import {
   Disc3,
   Play,
   Trash2,
-  ChevronRight,
   ArrowLeft,
   Check,
-  Music,
   Plus,
   Folder,
 } from 'lucide-react';
@@ -20,7 +18,6 @@ interface AlbumsTabProps {
   currentTrack: Track | null;
   isPlaying: boolean;
   onPlayTrack: (track: Track, queue?: Track[]) => void;
-  onAddToAlbumRequest?: (track: Track) => void;
 }
 
 export const AlbumsTab: React.FC<AlbumsTabProps> = ({

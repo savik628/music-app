@@ -103,11 +103,6 @@ export async function getAllTracks(): Promise<Track[]> {
   return tracks.sort((a, b) => b.addedAt - a.addedAt);
 }
 
-export async function getTrack(id: string): Promise<Track | undefined> {
-  const db = await getDB();
-  return db.get('tracks', id);
-}
-
 export async function deleteTrack(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('tracks', id);
@@ -132,11 +127,6 @@ export async function getAllPlaylists(): Promise<Playlist[]> {
   const db = await getDB();
   const list = await db.getAll('playlists');
   return list.sort((a, b) => b.createdAt - a.createdAt);
-}
-
-export async function getPlaylist(id: string): Promise<Playlist | undefined> {
-  const db = await getDB();
-  return db.get('playlists', id);
 }
 
 export async function deletePlaylist(id: string): Promise<void> {

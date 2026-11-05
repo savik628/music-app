@@ -50,12 +50,17 @@ export async function searchCoverOnline(artist: string, title: string): Promise<
     searchQueries.push(cArtist);
   }
 
+  let attempts = 0;
+
   // 1. Try iTunes Search API (RU store first for local artists, then global)
   for (const q of searchQueries) {
+    if (attempts >= 3) break;
     for (const country of ['ru', 'us']) {
+      if (attempts >= 3) break;
+      attempts++;
       try {
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&country=${country}&entity=song&limit=3`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           const data = await res.json();
           const results = data.results || [];
@@ -75,11 +80,13 @@ export async function searchCoverOnline(artist: string, title: string): Promise<
   }
 
   // 2. Try iTunes Album search as fallback
-  if (cArtist && cArtist !== 'Неизвестный исполнитель') {
+  if (attempts < 3 && cArtist && cArtist !== 'Неизвестный исполнитель') {
     for (const country of ['ru', 'us']) {
+      if (attempts >= 3) break;
+      attempts++;
       try {
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(cArtist)}&country=${country}&entity=album&limit=1`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           const data = await res.json();
           const first = data.results?.[0];
