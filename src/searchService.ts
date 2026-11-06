@@ -19,54 +19,24 @@ export async function getPopularTracks(): Promise<SearchTrack[]> {
     return popularSongsCache;
   }
 
-  const tracks: SearchTrack[] = [];
-  const seen = new Set<string>();
-
   try {
-    const res = await fetch('https://itunes.apple.com/ru/rss/topsongs/limit=30/json', {
-      signal: AbortSignal.timeout(10000),
+    const res = await fetch(`${import.meta.env.BASE_URL}charts.json`, {
+      signal: AbortSignal.timeout(8000),
     });
-    const data = await res.json();
-    const entries = data.feed?.entry || [];
-
-    entries.forEach((e: any) => {
-      const title = e['im:name']?.label || e.title?.label || 'Без названия';
-      const artist = e['im:artist']?.label || 'Популярный артист';
-      const key = `${artist} - ${title}`.toLowerCase();
-
-      // Find audio preview
-      const previewLink = e.link?.find((l: any) => l.attributes?.type?.startsWith('audio/'));
-      const audioUrl = previewLink ? previewLink.attributes.href : undefined;
-
-      // Find cover
-      const images = e['im:image'] || [];
-      const coverUrl = images.length > 0 ? images[images.length - 1].label : undefined;
-
-      if (!seen.has(key) && audioUrl) {
-        seen.add(key);
-        tracks.push({
-          id: `pop-${e.id?.attributes?.['im:id'] || Math.random().toString(36).substring(2, 7)}`,
-          title,
-          artist,
-          album: e['im:collection']?.['im:name']?.label || 'Популярное',
-          coverUrl: coverUrl ? coverUrl.replace(/\/\d+x\d+bb/, '/400x400bb') : undefined,
-          audioUrl,
-          duration: 30,
-          source: 'itunes',
-          isFullVersion: false,
-        });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data?.tracks) && data.tracks.length > 0) {
+        popularSongsCache = data.tracks;
+        return data.tracks;
       }
-    });
+    }
   } catch (err) {
-    console.warn('Failed to load RSS top songs, using curated fallback:', err);
+    console.warn('Failed to load charts.json, using fallback search:', err);
   }
 
-  // Fallback if RSS empty
-  if (tracks.length < 5) {
-    const fallbackSearch = await searchTracks('Miyagi');
-    tracks.push(...fallbackSearch.slice(0, 10));
-  }
-
+  // Fallback search
+  const fallbackSearch = await searchTracks('Miyagi');
+  const tracks = fallbackSearch.slice(0, 10);
   popularSongsCache = tracks;
   return tracks;
 }

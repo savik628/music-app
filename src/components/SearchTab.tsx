@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   Calendar,
   Layers,
+  ExternalLink,
 } from 'lucide-react';
 import { saveTrack } from '../db';
 import type { Track } from '../types';
@@ -537,7 +538,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
             <div className="flex items-center gap-1.5">
               {!isSearched && <Flame className="w-4 h-4 text-white" />}
               <h2 className="text-sm font-bold text-white tracking-tight">
-                {isSearched ? `Результаты поиска (${searchResults.length})` : 'Популярные хиты'}
+                {isSearched ? `Результаты поиска (${searchResults.length})` : 'Хиты недели — Apple Music Россия'}
               </h2>
             </div>
             <span className="text-[11px] text-neutral-400 font-medium">
@@ -662,6 +663,33 @@ export const SearchTab: React.FC<SearchTabProps> = ({ onTrackDownloaded }) => {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* External Services Links */}
+          {isSearched && !loading && query.trim() && (
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2 text-center">
+              <span className="text-xs text-neutral-400">Нет нужного трека? Слушать в:</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://music.yandex.ru/search?text=${encodeURIComponent(query.trim())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 hover:text-white flex items-center gap-1.5 transition active:scale-95"
+                >
+                  <span>Яндекс Музыка</span>
+                  <ExternalLink className="w-3 h-3 text-neutral-400" />
+                </a>
+                <a
+                  href={`https://vk.com/audio?q=${encodeURIComponent(query.trim())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-full text-xs font-medium text-neutral-300 hover:text-white flex items-center gap-1.5 transition active:scale-95"
+                >
+                  <span>VK Музыка</span>
+                  <ExternalLink className="w-3 h-3 text-neutral-400" />
+                </a>
+              </div>
             </div>
           )}
         </div>
